@@ -1,0 +1,13 @@
+﻿[*.{cs,vb}]
+
+# IDE0060: Remove unused parameter
+dotnet_diagnostic.IDE0060.severity = none
+
+# IDE0090: Use 'new(...)'
+dotnet_diagnostic.IDE0090.severity = silent
+
+# IDE0066: Convert switch statement to expression
+dotnet_diagnostic.IDE0066.severity = silent
+
+# IDE0010: Add missing cases
+dotnet_diagnostic.IDE0010.severity = suggestion

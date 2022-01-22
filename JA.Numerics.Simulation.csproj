@@ -1,0 +1,153 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{742DAD2D-D009-4A0C-8623-DFFB49B917B6}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>JA</RootNamespace>
+    <AssemblyName>JA.Numerics.Simulation</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>false</Deterministic>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <!--LangVersion>7.3</LangVersion-->
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Memory, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.Memory.4.5.4\lib\net461\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Numerics\Constants.cs" />
+    <Compile Include="GlobalSuppressions.cs" />
+    <Compile Include="Numerics\LinearAlgebra.cs" />
+    <Compile Include="Numerics\MatrixShape.cs" />
+    <Compile Include="Numerics\Simulation\ITree.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Link3.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Mesh.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Polygon.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Scene.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Triangle.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\BodyState.cs" />
+    <Compile Include="Numerics\Materials.cs" />
+    <Compile Include="Numerics\UI\Camera.cs" />
+    <Compile Include="Numerics\UI\Gdi.cs" />
+    <Compile Include="Numerics\UI\Render3DForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Numerics\UI\Render3DForm.Designer.cs">
+      <DependentUpon>Render3DForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Numerics\Simulation\Spatial\Solid.cs" />
+    <Compile Include="Numerics\Units.cs" />
+    <Compile Include="Numerics\Vector.cs" />
+    <Compile Include="Numerics\Matrix.cs" />
+    <Compile Include="Numerics\JaggedMatrixLU.cs" />
+    <Compile Include="Numerics\Simulation\Planar\Frame2.cs" />
+    <Compile Include="Numerics\Simulation\Planar\FrameState.cs" />
+    <Compile Include="Numerics\Simulation\Planar\JointProperties.cs" />
+    <Compile Include="Numerics\Simulation\Planar\World2.cs" />
+    <Compile Include="Numerics\Simulation\Planar\FrameKinematics.cs" />
+    <Compile Include="Numerics\Simulation\Planar\MassProperties.cs" />
+    <Compile Include="Numerics\Matrix2.cs" />
+    <Compile Include="Numerics\Matrix21.cs" />
+    <Compile Include="Numerics\Simulation\Planar\Pose.cs" />
+    <Compile Include="Numerics\Simulation\Planar\Simulation.cs" />
+    <Compile Include="Numerics\Vector21.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\JointState.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\JointProperties.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\FrameKinematics.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Simulation.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\World3.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\MassProperties.cs" />
+    <Compile Include="Numerics\Matrix3.cs" />
+    <Compile Include="Numerics\Matrix33.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Pose.cs" />
+    <Compile Include="Numerics\Vector33.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".editorconfig" />
+    <None Include="App.config" />
+    <None Include="packages.config" />
+    <None Include="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include=".NETFramework,Version=v4.8">
+      <Visible>False</Visible>
+      <ProductName>Microsoft .NET Framework 4.8 %28x86 and x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Numerics\UI\Render3DForm.resx">
+      <DependentUpon>Render3DForm.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="2022-01-21 23_33_51-Form1.png" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
