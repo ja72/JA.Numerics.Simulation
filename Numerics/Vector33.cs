@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace JA.Numerics
 {
+    [TypeConverter(typeof(ExpandableObjectConverter))]
     public struct Vector33 : IEquatable<Vector33>
     {
         internal readonly (Vector3 m_1, Vector3 m_2) data;
@@ -39,10 +41,11 @@ namespace JA.Numerics
 
         #region Properties
         public (Vector3 a1, Vector3 a2) Data => data;
-
+        [Category("Data")]
         public Vector3 Vector1 { get => data.m_1; }
+        [Category("Data")]
         public Vector3 Vector2 { get => data.m_2; }
-
+        [Browsable(false)]
         public bool IsZero => data.m_1 == Vector3.Zero && data.m_2 == Vector3.Zero;
 
         public Vector3 TwistAt(Vector3 position)
@@ -50,14 +53,19 @@ namespace JA.Numerics
         public Vector3 WrenchAt(Vector3 position)
             => data.m_2 - LinearAlgebra.Cross(position, data.m_1);
 
+        [Category("Twist")]
         public float TwistMagnitude => data.m_2.Length();
+        [Category("Twist")]
         public Vector3 TwistDirection => Vector3.Normalize(data.m_2);
-        public float WrenchMagnitude => data.m_1.Length();
-        public Vector3 WrenchDirection => Vector3.Normalize(data.m_1);
-
+        [Category("Twist")]
         public Vector3 TwistCenter
             => LinearAlgebra.Cross(data.m_2, data.m_1) / (data.m_2 * data.m_2);
 
+        [Category("Wrench")]
+        public float WrenchMagnitude => data.m_1.Length();
+        [Category("Wrench")]
+        public Vector3 WrenchDirection => Vector3.Normalize(data.m_1);
+        [Category("Wrench")]
         public Vector3 WrenchCenter
             => LinearAlgebra.Cross(data.m_1, data.m_2) / data.m_1.LengthSquared();
         #endregion
@@ -167,7 +175,7 @@ namespace JA.Numerics
         /// <summary>
         /// Get the number of elements in the matrix.
         /// </summary>
-        public int Count => 2;
+        [Browsable(false)] public int Count => 2;
 
         /// <summary>
         /// Get the elemetns as an array
@@ -189,8 +197,8 @@ namespace JA.Numerics
 
         #region Formatting
         public override string ToString() => $"Vector33(" +
-            $"{data.m_1.X},{data.m_1.Y},{data.m_1.Z}|" +
-            $"{data.m_2.X},{data.m_2.Y},{data.m_2.Z})";
+            $"{data.m_1.X:g3},{data.m_1.Y:g3},{data.m_1.Z:g3} | " +
+            $"{data.m_2.X:g3},{data.m_2.Y:g3},{data.m_2.Z:g3})";
         #endregion
 
     }

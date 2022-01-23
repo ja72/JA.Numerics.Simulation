@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Numerics;
 
 namespace JA.Numerics.Simulation.Spatial
 {
-
-    public class Solid :
-        IHasUnits<Solid>
+    [TypeConverter(typeof(ExpandableObjectConverter))]
+    public class Solid : IHasUnits<Solid>
     {
         public Solid(Scene scene, float mass, Vector3 mMoi, Vector3 cg, Pose pose)
         {
@@ -34,7 +34,9 @@ namespace JA.Numerics.Simulation.Spatial
             MassProperties = massProperties;
             State = state;
         }
+        [Browsable(false)]
         public UnitSystem Units { get; }
+        [Browsable(false)]
         public Scene Scene { get; }
         public Mesh Mesh { get; }
         public Pose LocalPosition { get; }

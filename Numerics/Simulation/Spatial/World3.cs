@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -8,6 +9,7 @@ using JA.Numerics.Simulation.Spatial;
 
 namespace JA.Numerics.Simulation.Spatial
 {
+    [TypeConverter(typeof(ExpandableObjectConverter))]
     public class World3 : IHasUnits<World3>
     {
         public World3(UnitSystem units) : this(units, Vector3.Zero) { }

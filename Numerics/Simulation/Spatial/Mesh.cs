@@ -1,12 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Numerics;
+using System.ComponentModel;
+
+using static System.Math;
 
 namespace JA.Numerics.Simulation.Spatial
 {
+    using JA.Numerics.UI;
 
+    [TypeConverter(typeof(ExpandableObjectConverter))]
     public class Element
     {
         public Element(Color color, params int[] face)
@@ -23,26 +29,29 @@ namespace JA.Numerics.Simulation.Spatial
             Array.Copy(Face.Reverse().ToArray(), Face, Face.Length);
         }
     }
-
+    [TypeConverter(typeof(ExpandableObjectConverter))]
     public class Mesh : IHasUnits<Mesh>
     {
         public Mesh(UnitSystem units = UnitSystem.MMKS)
         {
             Units = units;
-            Nodes = new List<Vector3>();
-            Elements = new List<Element>();
+            NodeList = new List<Vector3>();
+            ElementList = new List<Element>();
         }
 
         public Mesh(UnitSystem units, IEnumerable<Vector3> nodes, IEnumerable<Element> elements) : this(units)
         {
-            Nodes = new List<Vector3>(nodes);
-            Elements = new List<Element>(elements);
+            NodeList = new List<Vector3>(nodes);
+            ElementList = new List<Element>(elements);
         }
 
         public UnitSystem Units { get; }
-        public List<Vector3> Nodes { get; }
-        public List<Element> Elements { get; }
-
+        [Browsable(false)]
+        public List<Vector3> NodeList { get; }
+        public Vector3[] Nodes { get => NodeList.ToArray(); }
+        [Browsable(false)]
+        public List<Element> ElementList { get; }
+        public Element[] Elements { get => ElementList.ToArray(); }
         public void GetVolumeProperties(out float volume, out Vector3 center, out Matrix3 specificMmoi)
         {
             volume = 0;
@@ -51,7 +60,7 @@ namespace JA.Numerics.Simulation.Spatial
             float dV;
             Vector3 dc;
             Matrix3 dI;
-            for (int index = 0; index < Elements.Count; index++)
+            for (int index = 0; index < ElementList.Count; index++)
             {
                 foreach (var trig in GetTriangles(index, Pose.Origin))
                 {
@@ -89,27 +98,85 @@ namespace JA.Numerics.Simulation.Spatial
 
         public void ApplyTranform(Pose origin)
         {
-            for (int i = 0; i < Nodes.Count; i++)
+            for (int i = 0; i < NodeList.Count; i++)
             {
-                Nodes[i] = Pose.FromLocal(origin, Nodes[i]);
+                NodeList[i] = Pose.FromLocal(origin, NodeList[i]);
             }
         }
         public void ReverseTranform(Pose origin)
         {
-            for (int i = 0; i < Nodes.Count; i++)
+            for (int i = 0; i < NodeList.Count; i++)
             {
-                Nodes[i] = Pose.ToLocal(Nodes[i], origin);
+                NodeList[i] = Pose.ToLocal(NodeList[i], origin);
+            }
+        }
+        public void Tesselate(int level = 1)
+        {
+            for (int c = 0; c < level; c++)
+            {
+                for (int i = ElementList.Count - 1; i >= 0; i--)
+                {
+                    TesselateFace(i);
+                }
+            }
+        }
+        public void TesselateFace(int index)
+        {
+            var face = ElementList[index].Face;
+            var color = ElementList[index].Color;
+            var nodes = face.Select(ni => NodeList[ni]).ToArray();
+            if (nodes.Length == 4)
+            {
+                ElementList.RemoveAt(index);
+                // assume quadrelateral and split all four sides.
+                // [f2]---[ 1]---[f1]
+                // |    C   |   B   |
+                // [ 2]---[ 4]---[ 0]
+                // |    D   |   A   |
+                // [f3]---[ 3]---[f0]
+                int k = NodeList.Count;
+                for (int i = 0; i < nodes.Length; i++)
+                {
+                    int j = (i+1) % nodes.Length;
+                    NodeList.Add((nodes[i] + nodes[j])/2);
+                }
+                NodeList.Add(LinearAlgebra.Average(nodes));
+
+                AddFace(color, face[0], k+0, k+4, k+3); // A
+                AddFace(color, k+0, face[1], k+1, k+4); // B
+                AddFace(color, k+4, k+1, face[2], k+2); // C
+                AddFace(color, k+3, k+4, k+2, face[3]); // D
+            }
+            else if (nodes.Length >= 3)
+            {
+                ElementList.RemoveAt(index);
+                int k = NodeList.Count;
+                NodeList.Add(LinearAlgebra.Average(nodes));
+
+                for (int i = 0; i < nodes.Length; i++)
+                {
+                    int j = (i+1) % nodes.Length;
+
+                    AddFace(color, k, face[i], face[j]);
+                }
             }
         }
 
         /// <summary>
-        /// Gets the coordinates of the nodes of a face, applying the mesh transformation.
+        /// Gets global the coordinates of the nodes of a face, applying the mesh transformation.
         /// </summary>
         /// <param name="index">The face index.</param>
         public Vector3[] GetNodes(int index, Pose pose)
         {
-            var R = Matrix4x4.CreateFromQuaternion(pose.Orientation);
-            return Elements[index].Face.Select(ni => pose.Position + Vector3.Transform(Nodes[ni], R)).ToArray();
+            return ElementList[index].Face.Select(ni => Pose.FromLocal(pose, NodeList[ni])).ToArray();
+        }
+        /// <summary>
+        /// Gets the local coordinates of the nodes of a face.
+        /// </summary>
+        /// <param name="index">The face index.</param>
+        public Vector3[] GetNodes(int index)
+        {
+            return ElementList[index].Face.Select(ni => NodeList[ni]).ToArray();
         }
         public Triangle[] GetTriangles(int index, Pose pose) => GetPolygon(index, pose).GetTriangles();
         public Polygon GetPolygon(int index, Pose pose) => new Polygon(GetNodes(index, pose));
@@ -165,23 +232,26 @@ namespace JA.Numerics.Simulation.Spatial
         /// </summary>
         /// <param name="color">The face color.</param>
         /// <param name="nodes">The local face nodes.</param>
-        public void AddFace(Color color,
-            params Vector3[] nodes)
+        public void AddFace(Color color, params Vector3[] nodes)
         {
-            var elemIndex = new int[nodes.Length];
+            var nodeIndex = new int[nodes.Length];
             for (int i = 0; i < nodes.Length; i++)
             {
-                if (Nodes.Contains(nodes[i]))
+                if (NodeList.Contains(nodes[i]))
                 {
-                    elemIndex[i] = Nodes.IndexOf(nodes[i]);
+                    nodeIndex[i] = NodeList.IndexOf(nodes[i]);
                 }
                 else
                 {
-                    elemIndex[i] = Nodes.Count;
-                    Nodes.Add(nodes[i]);
+                    nodeIndex[i] = NodeList.Count;
+                    NodeList.Add(nodes[i]);
                 }
             }
-            Elements.Add(new Element(color, elemIndex));
+            ElementList.Add(new Element(color, nodeIndex));
+        }
+        public void AddFace(Color color, params int[] nodeIndex)
+        {
+            ElementList.Add(new Element(color, nodeIndex));
         }
         /// <summary>
         /// Adds a square panel as a face.
@@ -207,7 +277,6 @@ namespace JA.Numerics.Simulation.Spatial
                 center + length / 2 * x_axis + width / 2 * y_axis,
                 center - length / 2 * x_axis + width / 2 * y_axis);
         }
-
         /// <summary>
         /// Creates a cube mesh from 6 panels.
         /// </summary>
@@ -254,6 +323,24 @@ namespace JA.Numerics.Simulation.Spatial
         public static Mesh CreateCube(Color color, float size)
             => CreateCube(color, size, size, size);
 
+        public static Mesh CreateSphere(Color color, float radius)
+        {
+            var mesh = CreateCube(color, 1f);
+            mesh.Tesselate(3);
+            for (int i = 0; i < mesh.NodeList.Count; i++)
+            {
+                var n = mesh.NodeList[i];
+                float d = mesh.NodeList[i].Length();
+                (float x, float y, float z) = (n.X, n.Y, n.Z);
+                x = x.CapAbs(0, 1);
+                y = y.CapAbs(0, 1);
+                z = z.CapAbs(0, 1);
+                n = new Vector3(x, y, z);
+                mesh.NodeList[i] = radius * Vector3.Normalize(n);
+            }
+            return mesh;
+        }
+
         /// <summary>
         /// Creates a square pyramid mesh from 5 panels.
         /// </summary>
@@ -263,16 +350,16 @@ namespace JA.Numerics.Simulation.Spatial
         public static Mesh CreatePyramid(Color color, float @base, float height)
         {
             var mesh = new Mesh();
-            mesh.Nodes.Add(new Vector3(-@base/2, -@base/2, 0));
-            mesh.Nodes.Add(new Vector3(@base/2, -@base/2, 0));
-            mesh.Nodes.Add(new Vector3(@base/2, @base/2, 0));
-            mesh.Nodes.Add(new Vector3(-@base/2, @base/2, 0));
-            mesh.Elements.Add(new Element(color, 3, 2, 1, 0));
-            mesh.Nodes.Add(height*Vector3.UnitZ);
-            mesh.Elements.Add(new Element(color, 4, 0, 1));
-            mesh.Elements.Add(new Element(color, 4, 1, 2));
-            mesh.Elements.Add(new Element(color, 4, 2, 3));
-            mesh.Elements.Add(new Element(color, 4, 3, 0));
+            mesh.NodeList.Add(new Vector3(-@base/2, -@base/2, 0));
+            mesh.NodeList.Add(new Vector3(@base/2, -@base/2, 0));
+            mesh.NodeList.Add(new Vector3(@base/2, @base/2, 0));
+            mesh.NodeList.Add(new Vector3(-@base/2, @base/2, 0));
+            mesh.ElementList.Add(new Element(color, 3, 2, 1, 0));
+            mesh.NodeList.Add(height*Vector3.UnitZ);
+            mesh.ElementList.Add(new Element(color, 4, 0, 1));
+            mesh.ElementList.Add(new Element(color, 4, 1, 2));
+            mesh.ElementList.Add(new Element(color, 4, 2, 3));
+            mesh.ElementList.Add(new Element(color, 4, 3, 0));
 
             return mesh;
         }
@@ -280,8 +367,46 @@ namespace JA.Numerics.Simulation.Spatial
         {
             float fl = UnitFactors.Length(Units, target);
             return new Mesh(target,
-                Nodes.Select((n) => fl * n),
-                Elements);
+                NodeList.Select((n) => fl * n),
+                ElementList);
         }
+
+        #region Rendering
+        public void Render(Camera camera, Graphics g, bool showMesh = false)
+    => Render(camera, g, Pose.Origin, showMesh);
+        public void Render(Camera camera, Graphics g, Pose pose, bool showMesh = false)
+        {
+            using (var pen = new Pen(Color.Black, 0))
+            using (var fill = new SolidBrush(Color.Black))
+            {
+                for (int index = 0; index < ElementList.Count; index++)
+                {
+                    var element = ElementList[index];
+                    var gp = new GraphicsPath();
+                    var poly = GetPolygon(index, pose);
+
+                    gp.AddPolygon(camera.Project(poly));
+                    if (camera.IsVisible(poly))
+                    {
+                        var (H, S, L) = element.Color.GetHsl();
+                        var diff = camera.DiffuseLight(poly);
+                        var spec = camera.SpecularLight(poly);
+                        L = L.Cap(0, 0.2f) + diff.Cap(-0.1f, 0.3f) + spec.Cap(0, 0.2f);
+                        fill.Color = (H, S, L).GetColor(0.5f);
+                        g.FillPath(fill, gp);
+                    }
+                    if (showMesh && camera.IsVisible(poly))
+                    {
+                        var (H, S, L) = element.Color.GetHsl();
+                        var diff = camera.DiffuseLight(poly);
+                        L = (L-0.2f + 0.2f* diff).Cap(0, 1f);
+                        pen.Color = (H, S, L).GetColor();
+                        g.DrawPath(pen, gp);
+                    }
+                }
+            }
+        }
+
+        #endregion
     }
 }

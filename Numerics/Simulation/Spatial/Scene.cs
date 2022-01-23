@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
@@ -7,15 +8,21 @@ using System.Numerics;
 
 namespace JA.Numerics.Simulation.Spatial
 {
-
-    public class Scene : IHasUnits<Scene>
+    [TypeConverter(typeof(ExpandableObjectConverter))]
+    public class Scene : IHasUnits<Scene>, INotifyPropertyChanged
     {
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        internal void OnPropertyChanged(string propertyName)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
         public Scene(UnitSystem units = UnitSystem.MMKS)
         {
             Units = units;
             Time = float.NaN;
             Current = null;
-            Bodies = new List<Solid>();
+            BodyList = new List<Solid>();
+            GeometryList = new List<Mesh>();
             Gravity = Vector3.Zero;
         }
 
@@ -28,18 +35,28 @@ namespace JA.Numerics.Simulation.Spatial
         {
             Gravity = gravity;
             Time = time;
-            Bodies = new List<Solid>(bodies);
+            BodyList = new List<Solid>(bodies);
             Current = current;
         }
-
+        [Category("Simulation")]
         public Vector3 Gravity { get; set; }
+        [Category("Simulation")]
         public float Time { get; set; }
-        public List<Solid> Bodies { get; }
+        [Browsable(false)]
+        public List<Mesh> GeometryList { get; }
+        [Category("Model")]
+        public Mesh[] Geometries { get => GeometryList.ToArray(); }
+        [Browsable(false)]
+        public List<Solid> BodyList { get; }
+        [Category("Model")]
+        public Solid[] Bodies { get => BodyList.ToArray(); }
+        [Category("Simulation")]
         public WorldState Current { get; set; }
+        [Category("Model")]
         public UnitSystem Units { get; }
         public WorldState GetInitialConditions()
         {
-            return new WorldState(Units, Bodies.Select((item) => item.State).ToArray());
+            return new WorldState(Units, BodyList.Select((item) => item.State).ToArray());
         }
 
         public void Update(float elapsedTime)
@@ -62,6 +79,9 @@ namespace JA.Numerics.Simulation.Spatial
 
             Time += elapsedTime;
             Current += (elapsedTime / 6) * (K0 + 2 * K1 + 2 * K2 + K3);
+
+            OnPropertyChanged(nameof(Time));
+            OnPropertyChanged(nameof(Current));
         }
 
         public WorldState CalcRate(float time, WorldState next)
@@ -69,7 +89,7 @@ namespace JA.Numerics.Simulation.Spatial
             var states = new BodyState[next.Count];
             for (int i = 0; i < states.Length; i++)
             {
-                var rb = Bodies[i];
+                var rb = BodyList[i];
                 var state = next.State[i];
                 var pose = state.Pose;
                 var cg = Pose.FromLocal(pose, rb.MassProperties.CG);
@@ -106,6 +126,7 @@ namespace JA.Numerics.Simulation.Spatial
         {
             Time = 0;
             Current = GetInitialConditions();
+            OnPropertyChanged(nameof(Current));
         }
 
         public Scene ConvertTo(UnitSystem target)
@@ -114,7 +135,7 @@ namespace JA.Numerics.Simulation.Spatial
             return new Scene(target,
                 fl*Gravity,
                 Time,
-                Bodies.Select((s) => s.ConvertTo(target)).ToArray(),
+                BodyList.Select((s) => s.ConvertTo(target)).ToArray(),
                 Current.ConvertTo(target));
         }
     }

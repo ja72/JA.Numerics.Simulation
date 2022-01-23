@@ -86,6 +86,7 @@
     <Compile Include="Numerics\Simulation\Spatial\Triangle.cs" />
     <Compile Include="Numerics\Simulation\Spatial\BodyState.cs" />
     <Compile Include="Numerics\Materials.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\WorldState.cs" />
     <Compile Include="Numerics\UI\Camera.cs" />
     <Compile Include="Numerics\UI\Gdi.cs" />
     <Compile Include="Numerics\UI\Render3DForm.cs">
@@ -145,9 +146,6 @@
     <EmbeddedResource Include="Numerics\UI\Render3DForm.resx">
       <DependentUpon>Render3DForm.cs</DependentUpon>
     </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="2022-01-21 23_33_51-Form1.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

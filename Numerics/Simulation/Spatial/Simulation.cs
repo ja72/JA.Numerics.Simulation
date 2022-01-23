@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
 using JA.Numerics.Simulation.Spatial;
 
 namespace JA.Numerics.Simulation.Spatial
 {
-
+    [TypeConverter(typeof(ExpandableObjectConverter))]
     public class Simulation
     {
         public Simulation(World3 world)

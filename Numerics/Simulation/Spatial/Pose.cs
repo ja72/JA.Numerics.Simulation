@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -8,6 +9,7 @@ using System.Xml;
 
 namespace JA.Numerics.Simulation.Spatial
 {
+    [TypeConverter(typeof(ExpandableObjectConverter))]
     public struct Pose : ICanConvert<Pose>
     {
         public Pose(Vector3 position, Quaternion orientation) : this()
@@ -73,8 +75,8 @@ namespace JA.Numerics.Simulation.Spatial
                 a.Position - b.Position,
                 a.Orientation - b.Orientation);
 
-        public static Pose operator +(Pose a, Pose b) => Add(a, b);
         public static Pose operator -(Pose a) => Negate(a);
+        public static Pose operator +(Pose a, Pose b) => Add(a, b);
         public static Pose operator -(Pose a, Pose b) => Subtract(a, b);
         public static Pose operator *(float f, Pose a) => Scale(f, a);
         public static Pose operator *(Pose a, float f) => Scale(f, a);
@@ -89,7 +91,7 @@ namespace JA.Numerics.Simulation.Spatial
         #endregion
 
 
-        public override string ToString() => $"Pose({{{Position}|{Orientation}}})";
+        public override string ToString() => $"Pose({{{Position:g3} | {Orientation:g3}}})";
 
         public Pose ConvertFromTo(UnitSystem units, UnitSystem target)
         {

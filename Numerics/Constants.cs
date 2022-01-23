@@ -14,7 +14,6 @@ namespace JA.Numerics
         const float pi = 3.1415926535897932384626433832795f;
         const float deg = pi/180f;
         const float rad = 1f / deg;
-
         public static float Pi(this int x) => x * pi;
         public static float Pi(this float x) => x * pi;
         public static float InvPi(this int x) => x / pi;

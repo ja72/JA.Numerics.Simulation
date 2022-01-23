@@ -6,6 +6,8 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
+using static System.Math;
+
 namespace JA.Numerics
 {
     public static class LinearAlgebra
@@ -68,7 +70,20 @@ namespace JA.Numerics
 
         #endregion
 
-        #region Comparisons
+        #region Values
+
+        public static float Cap(this float value, float minValue = 0, float maxValue = 1)
+        {
+            if(value < minValue) return minValue;
+            if(value > maxValue) return maxValue;
+            return value;
+        }
+        public static float CapAbs(this float value, float minValue = 0, float maxValue = 1)
+        {
+            if (Abs(value) < minValue) return minValue * Sign(value);
+            if (Abs(value) > maxValue) return maxValue * Sign(value);
+            return value;
+        }
 
         public static AbsFloatComparer AbsFloat(float delta)
             => new AbsFloatComparer(delta);

@@ -66,7 +66,7 @@ namespace JA.Numerics.Simulation.Planar
 
         #region Formatting
         public override string ToString() 
-            => $"Body(Mass={Mass}, MMOI={MMoi}, CG={CG})";
+            => $"Body(Mass={Mass:g3}, MMOI={MMoi:g3}, CG={CG:g3})";
         #endregion
     }
 }

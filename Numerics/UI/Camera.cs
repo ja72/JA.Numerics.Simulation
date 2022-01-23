@@ -7,9 +7,11 @@ using System.Windows.Forms;
 
 namespace JA.Numerics.UI
 {
+    using System.ComponentModel;
     using JA.Numerics.Simulation;
     using JA.Numerics.Simulation.Spatial;
 
+    [TypeConverter(typeof(ExpandableObjectConverter))]
     public class MouseControl
     {
         public Point DownPos { get; set; }
@@ -23,9 +25,14 @@ namespace JA.Numerics.UI
 
     public delegate void CameraPaintHandler(Camera camera, Graphics g);
 
-    public class Camera
+    [TypeConverter(typeof(ExpandableObjectConverter))]
+    public sealed class Camera : INotifyPropertyChanged
     {
         public event CameraPaintHandler Paint;
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        internal void OnPropertyChanged(string propertyName) 
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Camera" /> class.
@@ -40,7 +47,7 @@ namespace JA.Numerics.UI
             Target = target;
             FOV = fov;
             SceneSize = sceneSize;
-            LightPos = new Vector3(0 * sceneSize, 0 * sceneSize / 2, -sceneSize);
+            LightPosition = new Vector3(1f * sceneSize, 1f * sceneSize, 2f* sceneSize);
             Mouse = new MouseControl();
             Yaw = 0;
             Pitch = 0;
@@ -53,11 +60,13 @@ namespace JA.Numerics.UI
             {
                 Mouse.DownPos = ev.Location;
                 Mouse.Buttons = ev.Button;
+                OnPropertyChanged(nameof(Mouse));
             };
             target.MouseUp += (s, ev) =>
             {
                 Mouse.UpPos = ev.Location;
                 Mouse.Buttons = ev.Button;
+                OnPropertyChanged(nameof(Mouse));
             };
             target.MouseMove += (s, ev) =>
             {
@@ -71,7 +80,16 @@ namespace JA.Numerics.UI
                     Yaw += f * dx;
                     Pitch += f * dy;
                     Mouse.DownPos = Mouse.CurrentPos;
+                    //OnPropertyChanged(nameof(Yaw));
+                    //OnPropertyChanged(nameof(Pitch));
                 }
+                OnPropertyChanged(nameof(Mouse));
+            };
+            target.FindForm().MouseWheel += (s, ev) =>
+            {
+                var λ = (float)Math.Exp(-ev.Delta/960f);
+                SceneSize *= λ;
+                OnPropertyChanged(nameof(SceneSize));
             };
         }
         public float Yaw { get; set; }
@@ -85,10 +103,10 @@ namespace JA.Numerics.UI
         {
             get => Quaternion.Inverse( Quaternion.CreateFromYawPitchRoll(-Yaw, -Pitch, -Roll) );
         }
-        public Vector3 LightPos { get; set; }
+        public Vector3 LightPosition { get; set; }
 
         public float DrawSize { get => 2 * (float)Math.Tan(FOV / 2 * Math.PI / 180); }
-        public Vector3 EyePos { get => Vector3.Transform(Vector3.UnitZ * SceneSize / DrawSize, Quaternion.Inverse(Orientation)); }
+        public Vector3 EyePosition { get => Vector3.Transform(Vector3.UnitZ * SceneSize / DrawSize, Quaternion.Inverse(Orientation)); }
         public PointF[] Project(Triangle triangle) => Project(triangle.A, triangle.B, triangle.C);
         public PointF[] Project(Polygon polygon) => Project(polygon.Nodes);
 
@@ -135,6 +153,9 @@ namespace JA.Numerics.UI
 
             return points;
         }
+        /// <summary>
+        /// Determines whether a face is visible. 
+        /// </summary>
         public bool IsVisible(Polygon polygon)
             => polygon.Nodes.Length < 3 || IsVisible(polygon.Nodes[0], polygon.Normal);
         /// <summary>
@@ -144,19 +165,33 @@ namespace JA.Numerics.UI
         /// <param name="normal">The face normal.</param>
         public bool IsVisible(Vector3 position, Vector3 normal)
         {
-            float λ = Vector3.Dot(normal, position - EyePos);
+            float λ = Vector3.Dot(normal, position - EyePosition);
 
             return λ < 0;
         }
-
-        public void Render(Graphics g, Scene scene, bool triangles = false)
+        public float DiffuseLight(Polygon polygon) => DiffuseLight(polygon.Nodes[0], polygon.Normal);
+        public float DiffuseLight(Vector3 position, Vector3 normal)
         {
-            var gsave = g.Save();
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TranslateTransform(Target.ClientSize.Width / 2f, Target.ClientSize.Height / 2f);
-            
+            var lightDir = LightPosition.Unit();
+            float d = Vector3.Distance(position, LightPosition);
+            float λ = Vector3.Dot(normal, lightDir);
+            //λ = λ.Cap(0, 1);
+            return λ * EyeDistance/(d*d);
+        }
+        public float SpecularLight(Polygon polygon) => SpecularLight(polygon.Nodes[0], polygon.Normal);
+        public float SpecularLight(Vector3 position, Vector3 normal)
+        {
+            // https://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_reflection_model
+            var lightDir = LightPosition.Unit();
+            var viewDir = EyePosition.Unit();
+            var half = Vector3.Normalize(lightDir + viewDir);
+            float λ = Vector3.Dot(normal, half);
+            return (float)Math.Pow(λ.Cap(0, 1), 155f);
+        }
+
+        void RenderCsys(Graphics g)
+        {
             using (var pen = new Pen(Color.Black, 0))
-            using (var fill = new SolidBrush(Color.Black))
             {
                 var csys = Project(Vector3.Zero, Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
                 pen.CustomEndCap = new AdjustableArrowCap(0.6f, 0.2f, true);
@@ -166,47 +201,39 @@ namespace JA.Numerics.UI
                 g.DrawLine(pen, csys[0], csys[2]);
                 pen.Color = Color.Blue;
                 g.DrawLine(pen, csys[0], csys[3]);
-                pen.Color = Color.Blue;
-                pen.EndCap = LineCap.NoAnchor;
-                var light = LightPos.Unit();
+            }
+        }
+
+        public void Render(Graphics g, Scene scene, bool triangles = false)
+        {
+            var gsave = g.Save();
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TranslateTransform(Target.ClientSize.Width / 2f, Target.ClientSize.Height / 2f);
+
+            RenderCsys(g);
+            
+            using (var pen = new Pen(Color.Black, 0))
+            using (var fill = new SolidBrush(Color.Black))
+            {
+                var light = -LightPosition.Unit();
                 var R = Matrix4x4.CreateFromQuaternion(Quaternion.Inverse(Orientation));
                 light = Vector3.TransformNormal(light, R);
-                for (int k = 0; k < scene.Bodies.Count; k++)
+                for (int w = 0; w < scene.GeometryList.Count; w++)
                 {
-                    var body = scene.Bodies[k];
+                    var mesh = scene.GeometryList[w];
+                    mesh.Render(this, g, triangles);
+                }
+                for (int k = 0; k < scene.BodyList.Count; k++)
+                {
+                    var body = scene.BodyList[k];
                     var state = scene.Current.State[k];
                     if (body.Mesh == null) continue;
                     var mesh = body.Mesh;
-                    for (int index = 0; index < mesh.Elements.Count; index++)
-                    {
-                        var element = mesh.Elements[index];
-                        var gp = new GraphicsPath();
-                        var poly = mesh.GetPolygon(index, state.Pose);
-                        if (triangles)
-                        {
-                            var faces = poly.GetTriangles();
-                            foreach (var trig in faces)
-                            {
-                                gp.AddPolygon(Project(trig));
-                            }
-                        }
-                        else
-                        {
-                            gp.AddPolygon(Project(poly));
-                        }
-                        if (IsVisible(poly))
-                        {
-                            var (H, S, L) = element.Color.GetHsl();
-                            var color = (H, S, L).GetColor(0.5f);
-                            fill.Color = color;
-                            g.FillPath(fill, gp);
-                        }
-                        pen.Color = element.Color;
-                        g.DrawPath(pen, gp);
-                    }
+                    mesh.Render(this, g, state.Pose, triangles);
                 }
             }
             g.Restore(gsave);
         }
+
     }
 }

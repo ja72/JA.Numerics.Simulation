@@ -173,7 +173,7 @@ namespace JA.Numerics
 
         #region Formatting
         public override string ToString() 
-            => $"Vector21({data.m_1.X},{data.m_1.Y}|{data.m_2})";
+            => $"Vector21({data.m_1.X:g3},{data.m_1.Y:g3} | {data.m_2:g3})";
         #endregion
     }
 

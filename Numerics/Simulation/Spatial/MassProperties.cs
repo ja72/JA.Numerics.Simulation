@@ -1,9 +1,11 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
 namespace JA.Numerics.Simulation.Spatial
 {
+    [TypeConverter(typeof(ExpandableObjectConverter))]
     public class MassProperties : IHasUnits<MassProperties>
     {
         public static readonly MassProperties Zero = new MassProperties(UnitSystem.SI, 0, Matrix3.Zero, Vector3.Zero);
@@ -154,7 +156,7 @@ namespace JA.Numerics.Simulation.Spatial
 
         #region Formatting
         public override string ToString()
-            => $"Body(Units={Units}, Mass={Mass}, MMOI={MMoi}, CG={CG})";
+            => $"Body(Units={Units}, Mass={Mass:g3}, MMOI={MMoi:g3}, CG={CG:g3})";
 
         #endregion
 

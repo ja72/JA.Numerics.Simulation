@@ -38,7 +38,7 @@ namespace JA.Numerics.Simulation.Planar
         public static Pose operator -(Pose world, Pose parent) => ToLocal(world, parent);
         #endregion
 
-        public override string ToString() => $"Pose({{{Position}|{Orientation}}})";
+        public override string ToString() => $"Pose({{{Position:g3}|{Orientation:g3}}})";
 
     }
 
