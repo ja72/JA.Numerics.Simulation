@@ -1,79 +1,69 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Numerics;
+using static System.Windows.Forms.AxHost;
 
 namespace JA.Numerics.Simulation.Spatial
 {
-    [TypeConverter(typeof(ExpandableObjectConverter))]
-    public class Solid : IHasUnits<Solid>
-    {
-        public Solid(Scene scene, float mass, Vector3 mMoi, Vector3 cg, Pose pose)
-        {
-            Units = scene.Units;
-            Scene = scene;
-            var I = Matrix3.Diagonal(mMoi);
-            MassProperties = new MassProperties(scene.Units, mass, I, cg);
-            State=new BodyState(scene.Units, pose, Vector33.Zero);
-            Mesh = null;
-        }
-        public Solid(Scene scene, float mass, Mesh mesh, Pose pose)
-        {
-            Units = scene.Units;
-            Scene = scene;
-            MassProperties = mesh.GetMmoiFromMass(mass);
-            State=new BodyState(scene.Units, pose, Vector33.Zero);
-            Mesh = mesh;
-        }
-        public Solid(UnitSystem units, Scene scene, Mesh mesh, Pose pose, MassProperties massProperties, BodyState state)
-        {
-            Units = units;
-            Scene = scene;
-            Mesh = mesh;
-            LocalPosition = pose;
-            MassProperties = massProperties;
-            State = state;
-        }
-        [Browsable(false)]
-        public UnitSystem Units { get; }
-        [Browsable(false)]
-        public Scene Scene { get; }
-        public Mesh Mesh { get; }
-        public Pose LocalPosition { get; }
-        public MassProperties MassProperties { get; private set; }
-        public BodyState State { get; set; }
 
-        public Solid ConvertTo(UnitSystem target)
+    [TypeConverter(typeof(ExpandableObjectConverter))]
+    public class Solid : Body, IHasUnits<Solid>
+    {
+        public Solid(Mesh mesh, World3 scene, float mass, Pose meshLocation)
+            : this(mesh, scene, mesh.GetMmoiFromMass(mass), meshLocation)
+        { }
+        public Solid(Mesh mesh, World3 scene, MassProperties mass, Pose meshLocation)
+            : base(mesh, scene, mass, meshLocation)
         {
-            return new Solid(
-                target,
-                Scene, Mesh.ConvertTo(target),
-                LocalPosition.ConvertFromTo(Units,target),
-                MassProperties.ConvertTo(target),
-                State.ConvertTo(target));
-                
+            InitialDisplacement = Pose.Origin;
+            InitialTranslationalVelocity = Vector3.Zero;
+            InitialRotationalVelocity = Vector3.Zero;
         }
-        public BodyState SetMotion(BodyState state, Vector3 cg, Vector33 motion)
+        public Solid(Solid copy, UnitSystem target) : base(copy, target)
         {
-            var I = MassProperties.Spi(state.Pose.Orientation, cg);
+            float fl = UnitFactors.Length(copy.Units, target);
+            InitialDisplacement                    = copy.InitialDisplacement.ConvertFromTo(copy.Units, target);
+            InitialTranslationalVelocity           = fl* copy.InitialTranslationalVelocity;
+            InitialRotationalVelocity              = copy.InitialRotationalVelocity;
+        }
+        public Solid(Solid copy) : base(copy)
+        {
+            InitialDisplacement                    = copy.InitialDisplacement;
+            InitialTranslationalVelocity           = copy.InitialTranslationalVelocity;
+            InitialRotationalVelocity              = copy.InitialRotationalVelocity;
+        }
+
+        public Pose InitialDisplacement { get; set; }
+        public Vector3 InitialTranslationalVelocity {get; set; }
+        public Vector3 InitialRotationalVelocity { get; set; }
+
+        public BodyState GetInitialState()
+        {
+            var cg = Pose.FromLocal(InitialDisplacement, CG);
+            var motion = GetMotion(InitialTranslationalVelocity, InitialRotationalVelocity, cg);
+            return GetState(InitialDisplacement, cg, motion);
+        }
+
+        public new Solid ConvertTo(UnitSystem target)
+        {
+            return new Solid(this, target);
+        }
+        public BodyState GetState(Pose pose, Vector3 cg, Vector33 motion)
+        {
+            var I = MassProperties.Spi(pose.Orientation, cg);
             //tex: Momentum from velocity
             //$$\begin{Bmatrix}p\\L\end{Bmatrix} = \begin{bmatrix}m & -m\,c\times\\
             //m\,c\times & I_{C}-m\,c\times c\times\end{bmatrix}\begin{Bmatrix}v\\\omega\end{Bmatrix}$$
 
             var L = I*motion;
             return new BodyState(
-                state.Units,
-                state.Pose,
+                pose,
                 L);
         }
-        public BodyState SetMotion(BodyState state, Vector33 motion)
+        public BodyState GetState(BodyState state, Vector33 motion)
         {
-            var cg = Pose.FromLocal(state.Pose, MassProperties.CG);
-            return SetMotion(state, cg, motion);
-        }
-        public void SetMotion(Vector33 motion)
-        {
-            State = SetMotion(State, motion);
+            var cg = Pose.FromLocal(state.Pose, CG);
+            return GetState(state.Pose, cg, motion);
         }
         public Vector33 GetMotion(BodyState state, Vector3 cg)
         {
@@ -88,10 +78,29 @@ namespace JA.Numerics.Simulation.Spatial
         }
         public Vector33 GetMotion(BodyState state)
         {
-            var cg = Pose.FromLocal(state.Pose, MassProperties.CG);
+            var cg = Pose.FromLocal(state.Pose, CG);
             return GetMotion(state, cg);
         }
-        public Vector33 GetMotion() => GetMotion(State);
-
+        public Vector33 GetMotion(Vector3 vee, Vector3 omg, Pose pivot)
+        {
+            vee = vee.Rotate(pivot.Orientation);
+            omg = omg.Rotate(pivot.Orientation);
+            return Vector33.Twist(vee, omg, pivot.Position);
+        }
+        public void SetMotion(Vector3 vee, Vector3 omg)
+        {
+            InitialTranslationalVelocity  = vee;
+            InitialRotationalVelocity = omg;
+        }
+        public void SetMotion(Vector33 motion)
+{
+            var cg = Pose.FromLocal(InitialDisplacement, CG);
+            InitialTranslationalVelocity = motion.TwistAt(cg);
+            InitialRotationalVelocity = motion.Vector2;
+        }
+        public override string ToString()
+        {
+            return $"Solid(Mass={MassProperties.Mass}, CG={CG})";
+        }
     }
 }

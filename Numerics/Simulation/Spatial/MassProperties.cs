@@ -163,6 +163,7 @@ namespace JA.Numerics.Simulation.Spatial
         #region Units
         public MassProperties ConvertTo(UnitSystem target)
         {
+            if (Units == target) return this;
             float fm = UnitFactors.Mass(Units, target);
             float fl = UnitFactors.Length(Units, target);
             float fi = fm * UnitFactors.Area(Units, target);

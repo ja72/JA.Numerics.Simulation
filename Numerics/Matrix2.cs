@@ -17,8 +17,8 @@ namespace JA.Numerics
         public static implicit operator Matrix2(float value) => Diagonal(value);
 
         public static Matrix2 Random(float minValue = 0, float maxValue = 1) => new Matrix2(
-            Constants.Random(minValue, maxValue), Constants.Random(minValue, maxValue),
-            Constants.Random(minValue, maxValue), Constants.Random(minValue, maxValue));
+            LinearAlgebra.Random(minValue, maxValue), LinearAlgebra.Random(minValue, maxValue),
+            LinearAlgebra.Random(minValue, maxValue), LinearAlgebra.Random(minValue, maxValue));
         public static Matrix2 Diagonal(Vector2 v) => Diagonal(v.X, v.Y);
         public static Matrix2 Diagonal(float d) => Diagonal(d, d);
         public static Matrix2 Diagonal(float d1, float d2)

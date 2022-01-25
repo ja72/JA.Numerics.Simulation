@@ -22,11 +22,14 @@ namespace JA.Numerics
         }
 
         public static readonly Vector33 Zero = new Vector33(Vector3.Zero, Vector3.Zero);
-
+        public static Vector33 Twist(Vector3 moment, Vector3 value, Vector3 position)
+            => new Vector33(moment + LinearAlgebra.Cross(position,value), value);
         public static Vector33 Twist(Vector3 value, Vector3 position, float pitch)
             => new Vector33(LinearAlgebra.Cross(position, value) + pitch * value, value);
         public static Vector33 Twist(Vector3 value)
             => new Vector33(value, Vector3.Zero);
+        public static Vector33 Wrench(Vector3 moment, Vector3 value, Vector3 position)
+            => new Vector33(value, moment + LinearAlgebra.Cross(position, value));
         public static Vector33 Wrench(Vector3 value, Vector3 position, float pitch)
             => new Vector33(value, LinearAlgebra.Cross(position, value) + pitch * value);
         public static Vector33 Wrench(Vector3 value)
@@ -59,7 +62,7 @@ namespace JA.Numerics
         public Vector3 TwistDirection => Vector3.Normalize(data.m_2);
         [Category("Twist")]
         public Vector3 TwistCenter
-            => LinearAlgebra.Cross(data.m_2, data.m_1) / (data.m_2 * data.m_2);
+            => LinearAlgebra.Cross(data.m_2, data.m_1) / data.m_2.LengthSquared();
 
         [Category("Wrench")]
         public float WrenchMagnitude => data.m_1.Length();

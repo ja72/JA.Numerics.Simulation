@@ -1,10 +1,13 @@
-﻿using System.Numerics;
+﻿using System.ComponentModel;
+using System.Numerics;
 
 namespace JA.Numerics.Simulation.Spatial
 {
+    [TypeConverter(typeof(ExpandableObjectConverter))]
     public struct FrameKinematics
     {
         public FrameKinematics(
+            in JointInfo joint,
             in Pose position,
             in Vector3 cgPosition,
             in Vector33 jointAxis,
@@ -18,6 +21,7 @@ namespace JA.Numerics.Simulation.Spatial
             in Vector33 acceleration,
             in Vector33 force) : this()
         {
+            Joint = joint;
             Position = position;
             CgPosition = cgPosition;
             JointAxis = jointAxis;
@@ -31,6 +35,7 @@ namespace JA.Numerics.Simulation.Spatial
             Acceleration = acceleration;
             Force = force;
         }
+        public JointInfo Joint { get; }
         public Pose Position { get; }
         public Vector3 CgPosition { get; }
         public Vector33 JointAxis { get; }
@@ -58,6 +63,7 @@ namespace JA.Numerics.Simulation.Spatial
         }
 
         public static readonly FrameKinematics Zero = new FrameKinematics(
+            JointInfo.Default,
             Pose.Origin,
             Vector3.Zero,
             Vector33.Zero,

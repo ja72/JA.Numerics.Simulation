@@ -2,17 +2,19 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Numerics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
-using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using JA.Numerics.Simulation.Spatial;
 
 namespace JA.Numerics.UI
 {
+    using JA.Numerics.Simulation;
+    using JA.Numerics.Simulation.Spatial;
+
     public partial class Render3DForm : Form
     {
         readonly Camera camera;
@@ -20,19 +22,24 @@ namespace JA.Numerics.UI
         const float deg = pi / 180;
         bool update = true;
         bool showMesh = false;
-        public Scene Scene { get; set; }
-
+        public World3 Scene { get; set; }
+        public MbdSolver MbdSolver { get; private set; }
+        public ChainSolver ChainSolver { get; private set; }
         public Render3DForm()
         {
             InitializeComponent();
 
             this.camera = new Camera(pictureBox1, 7f, 5f);
-            this.Scene = new Scene();
+            this.Scene = new World3(UnitSystem.MMKS);
             this.timer1.Interval = 15;
             this.timer1.Tick += (s, ev) =>
             {
                 float h = timer1.Interval / 1000f;
-                if (update) { Scene.Update(h); }
+                if (update)
+                {
+                    MbdSolver?.Update(h);
+                    ChainSolver?.Update(h);
+                }
                 pictureBox1.Invalidate();
                 //propertyGrid1.Refresh();
             };
@@ -75,60 +82,93 @@ namespace JA.Numerics.UI
                 }
             };
 
-            this.camera.Paint += (c, g) =>
+            this.camera.Paint += (g, c) =>
             {
-                c.Render(g, Scene, showMesh);
+                //c.Render(g, Scene, showMesh);
+                Scene.Render(g, c);
+                MbdSolver?.Render(g, c);
+                ChainSolver?.Render(g, c);
             };
 
             pictureBox1.Focus();
         }
+
+        protected void UpdateUI()
+        {
+            var status = update ? "RUN" : "STOP";
+            statusToolStripStatusLabel.Text = $"[{status}] MBD: {MbdSolver?.Bodies.Length ?? 0} Chain: {ChainSolver?.Bodies.Length ?? 0} Geometry: {Scene.GeometryList.Count}";
+        }
+
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
 
-            Demo4PhoneFlip();
+            //Demo.DemoSphere(Scene);
+            //Demo.Demo4PhoneFlip(Scene);
+            Demo.ChainDemo(Scene);
 
-            //DemoSphere();
 
-            Scene.Reset();
-
-            propertyGrid1.SelectedObject = Scene;
-        }
-
-        private void DemoSphere()
-        {
-            var mesh = Mesh.CreateSphere(Color.SteelBlue, 4f);
-            var solid = new Solid(Scene, 0.1f, mesh, Pose.Origin);
-            solid.SetMotion(Vector33.Twist(4f * Vector3.UnitX, Vector3.Zero, 0));
-            Scene.BodyList.Add(solid);
-        }
-
-        private void Demo4PhoneFlip()
-        {
-            for (int i = 0; i < 4; i++)
+            MbdSolver = Scene.GetMbdSolver();
+            this.MbdSolver.PropertyChanged += (s, ev) =>
             {
-                var mesh = Mesh.CreateCube(Color.Blue, 4f, 0.6f, 2.6f);
-                var cg = 0f*Vector3.UnitY;
-                mesh.ApplyTranform(cg);
-                mesh.ElementList[0].Color = Color.Red;
-                mesh.ElementList[1].Color = Color.Green;
-                var pose = Pose.At((i-1.5f) * 3f * Vector3.UnitX);
-                var solid = new Solid(Scene, 0.1f, mesh, pose);
-                cg = Pose.FromLocal(pose, cg);
-                var axis = Vector3.Normalize(Vector3.UnitZ + (2e-7f*(i-1.5f))*Vector3.UnitX);
-                solid.SetMotion(Vector33.Twist(4f * axis, cg, 0));
-                Scene.BodyList.Add(solid);
+                if (object.ReferenceEquals(propertyGrid1.SelectedObject, MbdSolver))
+                {
+                    propertyGrid1.Refresh();
+                }
+            };
+
+            ChainSolver = Scene.GetChainSolver();
+            this.ChainSolver.PropertyChanged += (s, ev) =>
+            {
+                if (object.ReferenceEquals(propertyGrid1.SelectedObject, ChainSolver))
+                {
+                    propertyGrid1.Refresh();
+                }
+            };
+
+            if (MbdSolver.Bodies.Length > 0)
+            {
+                propertyGrid1.SelectedObject = MbdSolver;
             }
+            if (ChainSolver.Bodies.Length > 0)
+            {
+                propertyGrid1.SelectedObject = ChainSolver;
+            }
+
+            UpdateUI();
         }
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            propertyGrid1.SelectedObject = Scene;
+            if (MbdSolver != null)
+            {
+                propertyGrid1.SelectedObject = MbdSolver;
+            }
+            else if (ChainSolver != null)
+            {
+                propertyGrid1.SelectedObject = ChainSolver;
+            }
         }
 
         private void linkLabel2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
             propertyGrid1.SelectedObject = camera;
+        }
+
+        private void startToolStripButton_Click(object sender, EventArgs e)
+        {
+            update = !update;
+            UpdateUI();
+        }
+
+        private void resetToolStripButton_Click(object sender, EventArgs e)
+        {
+            update = false;
+
+            MbdSolver?.Reset();
+            ChainSolver?.Reset();
+
+            UpdateUI();
         }
     }
 }

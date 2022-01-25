@@ -11,19 +11,12 @@ namespace JA.Numerics.UI
     using JA.Numerics.Simulation;
     using JA.Numerics.Simulation.Spatial;
 
-    [TypeConverter(typeof(ExpandableObjectConverter))]
-    public class MouseControl
+    public interface IVisible
     {
-        public Point DownPos { get; set; }
-        public Point UpPos { get; set; }
-        public Point CurrentPos { get; set; }
-        public MouseButtons Buttons { get; set; }
-
-        public (int dx, int dy) CurrentDelta => (CurrentPos.X - DownPos.X, CurrentPos.Y - DownPos.Y);
-        public (int dx, int dy) DragDelta => (UpPos.X - DownPos.X, UpPos.Y - DownPos.Y);
+        void Render(Graphics g, Camera camera);
     }
 
-    public delegate void CameraPaintHandler(Camera camera, Graphics g);
+    public delegate void CameraPaintHandler(Graphics g, Camera camera);
 
     [TypeConverter(typeof(ExpandableObjectConverter))]
     public sealed class Camera : INotifyPropertyChanged
@@ -31,7 +24,7 @@ namespace JA.Numerics.UI
         public event CameraPaintHandler Paint;
         public event PropertyChangedEventHandler PropertyChanged;
 
-        internal void OnPropertyChanged(string propertyName) 
+        internal void OnPropertyChanged(string propertyName)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
         /// <summary>
@@ -54,7 +47,9 @@ namespace JA.Numerics.UI
             Roll = 0;
             target.Paint += (s, ev) =>
             {
-                Paint?.Invoke(this, ev.Graphics);
+                var gs = ev.Graphics.Save();
+                Paint?.Invoke(ev.Graphics, this);
+                ev.Graphics.Restore(gs);
             };
             target.MouseDown += (s, ev) =>
             {
@@ -101,7 +96,7 @@ namespace JA.Numerics.UI
         public float FOV { get; set; }
         public Quaternion Orientation
         {
-            get => Quaternion.Inverse( Quaternion.CreateFromYawPitchRoll(-Yaw, -Pitch, -Roll) );
+            get => Quaternion.Inverse(Quaternion.CreateFromYawPitchRoll(-Yaw, -Pitch, -Roll));
         }
         public Vector3 LightPosition { get; set; }
 
@@ -203,36 +198,12 @@ namespace JA.Numerics.UI
                 g.DrawLine(pen, csys[0], csys[3]);
             }
         }
-
-        public void Render(Graphics g, Scene scene, bool triangles = false)
+        public void SetupView(Graphics g)
         {
-            var gsave = g.Save();
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TranslateTransform(Target.ClientSize.Width / 2f, Target.ClientSize.Height / 2f);
 
             RenderCsys(g);
-            
-            using (var pen = new Pen(Color.Black, 0))
-            using (var fill = new SolidBrush(Color.Black))
-            {
-                var light = -LightPosition.Unit();
-                var R = Matrix4x4.CreateFromQuaternion(Quaternion.Inverse(Orientation));
-                light = Vector3.TransformNormal(light, R);
-                for (int w = 0; w < scene.GeometryList.Count; w++)
-                {
-                    var mesh = scene.GeometryList[w];
-                    mesh.Render(this, g, triangles);
-                }
-                for (int k = 0; k < scene.BodyList.Count; k++)
-                {
-                    var body = scene.BodyList[k];
-                    var state = scene.Current.State[k];
-                    if (body.Mesh == null) continue;
-                    var mesh = body.Mesh;
-                    mesh.Render(this, g, state.Pose, triangles);
-                }
-            }
-            g.Restore(gsave);
         }
 
     }

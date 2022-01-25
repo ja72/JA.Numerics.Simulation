@@ -1,6 +1,7 @@
 ﻿﻿# JA.Numerics.Simulation
 
-![scr](2022-01-21-23_33_51-Form1.png)
+![scr1](2022-01-21-23_33_51-Form1.png)
+![scr2](2022-01-25-09_22_26-Form1.png)
 
 A WinForms 2D and 3D rigid body simulation project that builds on `System.Numerics` and their SIMD accelerated geometry classes
 `Vector2`, `Vector3` and `Quaternion`.

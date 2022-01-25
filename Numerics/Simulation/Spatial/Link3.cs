@@ -1,142 +1,125 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using JA.Numerics.UI;
 
 namespace JA.Numerics.Simulation.Spatial
 {
-
-    public delegate Vector33 AppliedForce(float time, Pose pose, Vector33 velocity);
-
-    public class Link3 : 
-        ITree<Link3>,
+    [TypeConverter(typeof(ExpandableObjectConverter))]
+    public class Link3 : Body, 
         IHasUnits<Link3>
     {
-        public static readonly AppliedForce ZeroForce = (t, r, v) => Vector33.Zero;
 
         #region Factory
-        internal Link3(World3 world, Pose position, MassProperties mass, JointProperties joint, float initialDisplacement = 0, float initialSpeed = 0)
+        internal Link3(Mesh mesh, World3 world, Pose meshPosition, MassProperties mass, Pose onWorld, JointProperties joint, float initialDisplacement = 0)
+            : base(mesh, world, mass, meshPosition)
         {
-            World = world ?? throw new ArgumentNullException(nameof(world));
-            Units = world.Units;
             Parent = null;
-            World.AddObject(this);
-            LocalPosition = position;
-            MassProperties = mass;
+            World.AddLink(this);
             JointProperties = joint;
-            AppliedForce = ZeroForce;
-            InitialSpeed = initialSpeed;
+            LocationOnParent = onWorld;
             InitialDisplacement = initialDisplacement;
+            InitialSpeed = 0;
         }
-        internal Link3(Link3 parent, Pose localPosition, MassProperties mass, JointProperties joint, float initialDisplacement = 0, float initialSpeed = 0)
+        internal Link3(Mesh mesh, Link3 parent, Pose meshPosition, MassProperties mass, Pose onParent, JointProperties joint, float initialDisplacement = 0)
+            : base(mesh, parent.World, mass, meshPosition)
         {
-            if (parent == null)
+            Parent = parent??throw new ArgumentNullException(nameof(parent));
+            World.AddLink(this);
+            JointProperties = joint;
+            LocationOnParent = onParent;
+            InitialDisplacement = initialDisplacement;
+            InitialSpeed = 0;
+        }
+
+        public Link3(Link3 copy) : base(copy)
+        {
+            this.Parent = copy.Parent;
+            this.AppliedForce = copy.AppliedForce;
+            this.JointProperties = copy.JointProperties;
+            this.InitialDisplacement = copy.InitialDisplacement;
+            this.InitialSpeed = copy.InitialSpeed;
+            this.LocationOnParent = copy.LocationOnParent;
+        }
+        public Link3(Link3 copy, UnitSystem target) : base(copy, target)
+        {
+            UnitSystem u = copy.Units;
+            float fl = copy.JointProperties.Type <= JointType.SlideAlongZ
+                ? UnitFactors.Length(u, target) : 1;
+            float fa = copy.JointProperties.Type <= JointType.SlideAlongZ
+                ? UnitFactors.Force(u, target) : UnitFactors.Torque(u, target);
+            float f_in = fl, f_out = fa;
+            if (copy.JointProperties.Motion == Prescribed.Motion)
             {
-                throw new ArgumentNullException(nameof(parent));
+                (f_in, f_out) = (f_out, f_in);
             }
-            World = parent.World;
-            Units = parent.World.Units;
-            Parent = parent;
-            World.AddObject(this);
-            LocalPosition = localPosition;
-            MassProperties = mass;
-            JointProperties = joint;
-            AppliedForce = ZeroForce;
-            InitialSpeed = initialSpeed;
-            InitialDisplacement = initialDisplacement;
+
+            float fs = UnitFactors.Length(copy.Units, target);
+            this.Parent = copy.Parent;
+            this.LocationOnParent = copy.LocationOnParent.ConvertFromTo(u, target);
+            this.JointProperties = copy.JointProperties.ConvertFromTo(u, target);
+            this.InitialDisplacement = fs*copy.InitialDisplacement;
+            this.InitialSpeed = fs*copy.InitialSpeed;
+            this.AppliedForce = (t, r, v) => f_out * copy.AppliedForce(t, new Pose(r.Position / fs, r.Orientation), v / fs);
         }
 
-        Link3(UnitSystem units, World3 world, Link3 parent, MassProperties massProperties, JointProperties jointProperties, Pose localPosition, float initialDisplacement, float initialSpeed, AppliedForce appliedForce)
-        {
-            Units = units;
-            World = world;
-            LocalPosition = localPosition;
-            Parent = parent;
-            MassProperties = massProperties;
-            JointProperties = jointProperties;
-            InitialDisplacement = initialDisplacement;
-            InitialSpeed = initialSpeed;
-            AppliedForce = appliedForce;
-        }
+        public Link3 AddChild(Mesh mesh, Pose meshPosition, MassProperties mass, Pose onParent, JointProperties type, float initialDisplacement = 0)
+            => new Link3(mesh, this, meshPosition, mass.ConvertTo(Units), onParent, type, initialDisplacement);
 
-        public Link3 AddChild(Pose localPosition, MassProperties mass, JointProperties type, float initialDisplacement = 0, float initialSpeed = 0)
-            => new Link3(this, localPosition, mass.ConvertTo(Units), type, initialDisplacement, initialSpeed);
-        public Link3 SlideAlongX(Pose localPosition, MassProperties mass, float initialDisplacement = 0)
-            => AddChild(localPosition, mass, JointType.SlideAlongX, initialDisplacement);
-        public Link3 SlideAlongY(Pose localPosition, MassProperties mass, float initialDisplacement = 0)
-            => AddChild(localPosition, mass, JointType.SlideAlongY, initialDisplacement);
-        public Link3 AddRevolute(Pose localPosition, MassProperties mass, float initialAngle = 0)
-            => AddChild(localPosition, mass, JointType.RotateAboutZ, initialAngle);
-        public Link3 AddCollarAlongX(Pose localPosition, MassProperties mass, float initialDisplacement = 0, float initialAngle = 0)
-            => AddChild(localPosition, MassProperties.Zero, JointType.SlideAlongX, initialDisplacement)
-                    .AddChild(Pose.Origin, mass, JointType.RotateAboutZ, initialAngle);
-        public Link3 AddCollarAlongY(Pose localPosition, MassProperties mass, float initialDisplacement = 0, float initialAngle = 0)
-            => AddChild(localPosition, MassProperties.Zero, JointType.SlideAlongY, initialDisplacement)
-                    .AddChild(Pose.Origin, mass, JointType.RotateAboutZ, initialAngle);
-        public Link3 AddFree(Pose localPosition, MassProperties mass, float initialX, float intialY, float initialAngle)
-            => AddChild(localPosition, MassProperties.Zero, JointType.SlideAlongX, initialX)
-                    .AddChild(Pose.Origin, MassProperties.Zero, JointType.SlideAlongY, intialY)
-                    .AddChild(Pose.Origin, mass, JointType.RotateAboutZ, initialAngle);
+        public Link3 SlideAlongX(Mesh mesh, Pose meshPosition, MassProperties mass, Pose onParent, float initialDisplacement = 0)
+            => AddChild(mesh, meshPosition, mass, onParent, JointType.SlideAlongX, initialDisplacement);
+
+        public Link3 SlideAlongY(Mesh mesh, Pose meshPosition, MassProperties mass, Pose onParent, float initialDisplacement = 0)
+            => AddChild(mesh, meshPosition, mass, onParent, JointType.SlideAlongY, initialDisplacement);
+        public Link3 AddRevolute(Mesh mesh, Pose meshPosition, MassProperties mass, Pose onParent, float initialAngle = 0)
+            => AddChild(mesh, meshPosition, mass, onParent, JointType.RotateAboutZ, initialAngle);
+        public Link3 AddCollarAlongX(Mesh mesh, Pose meshPosition, MassProperties mass, Pose onParent, float initialDisplacement = 0, float initialAngle = 0)
+            => AddChild(null, meshPosition, MassProperties.Zero, onParent, JointType.SlideAlongX, initialDisplacement)
+                    .AddChild(mesh, Pose.Origin, mass, Pose.Origin, JointType.RotateAboutZ, initialAngle);
+
+        public Link3 AddCollarAlongY(Mesh mesh, Pose meshPosition, MassProperties mass, Pose onParent, float initialDisplacement = 0, float initialAngle = 0)
+            => AddChild(null, meshPosition, MassProperties.Zero, onParent, JointType.SlideAlongY, initialDisplacement)
+                    .AddChild(mesh, Pose.Origin, mass, Pose.Origin, JointType.RotateAboutZ, initialAngle);
+        public Link3 AddFree(Mesh mesh, Pose meshPosition, MassProperties mass, Pose onParent, float initialX, float intialY, float initialAngle)
+            => AddChild(null,meshPosition, MassProperties.Zero, onParent, JointType.SlideAlongX, initialX)
+                    .AddChild(null, Pose.Origin, MassProperties.Zero, Pose.Origin, JointType.SlideAlongY, intialY)
+                    .AddChild(mesh, Pose.Origin, mass, Pose.Origin, JointType.RotateAboutZ, initialAngle);
 
         public void RemoveChild(Link3 child)
         {
-            foreach (var item in World.objects.Where(f => f.Parent == child))
-            {
-                item.Parent = this;
-            }
-            World.objects.Remove(child);
+            World.RemoveChild(child);
         }
+        #endregion
+
+        #region Tree
+        [Category("Model")] public Link3 Parent { get; private set; }
+        [Category("Model")] public IList<Link3> Children { get => World.linkList.Where(f => f.Parent == this).ToList(); }
+        [Category("Model")] public int Index { get => World.linkList.IndexOf(this); }
+        [Category("Model")] public int ParentIndex { get => Parent != null ? Parent.Index : -1; }
+        [Category("Model")] public int Level { get => IsRoot ? 0 : Parent.Level + 1; }
+        [Category("Model")] public bool IsRoot { get => Parent == null; }
+        public void SetParent(Link3 parent) => Parent = parent;
+
         #endregion
 
         #region Properties
-        public UnitSystem Units { get; }
-        public Pose LocalPosition { get; }
-        public World3 World { get; }
-        public Link3 Parent { get; internal set; }
-        public IReadOnlyList<Link3> Children { get => World.objects.Where(f => f.Parent == this).ToList().AsReadOnly(); }
-        public MassProperties MassProperties { get; private set; }
+        public Pose LocationOnParent { get; set; }
         public JointProperties JointProperties { get; }
         public float InitialDisplacement { get; set; }
         public float InitialSpeed { get; set; }
-        public AppliedForce AppliedForce { get; set; }
-        
+
         #endregion
 
         #region Derived Properties
-        public int Index { get => World.objects.IndexOf(this); }
-        public int ParentIndex { get => Parent != null ? Parent.Index : -1; }
-        public int Level { get => IsRoot ? 0 : Parent.Level + 1; }
-        public bool IsRoot { get => Parent == null; }
-
-        public void AddSolid(MassProperties other)
-        {
-            MassProperties += other;
-        }
-        public void RemoveSolid(MassProperties other)
-        {
-            MassProperties -= other;
-        }
 
         public JointState GetInitial()
         {
-            float q = InitialDisplacement;
-            float qp = InitialSpeed;
-            float qpp = 0;
-            float tau = 0;
-            switch (JointProperties.Motion)
-            {
-                case Prescribed.Motion:
-                    qpp = JointProperties.JointDriver(0, q, qp);
-                    break;
-                case Prescribed.Load:
-                    tau = JointProperties.JointDriver(0, q, qp);
-                    break;
-                default:
-                    throw new NotSupportedException();
-            }
-            return new JointState(q, qp, qpp, tau);
+            return new JointState(JointProperties.Type, InitialDisplacement, InitialSpeed);
         }
         #endregion
 
@@ -190,35 +173,17 @@ namespace JA.Numerics.Simulation.Spatial
             }
         }
 
-        #endregion
 
         public override string ToString()
         {
-            return $"[{Index}] Frame: Local={LocalPosition}, Parent#={ParentIndex}";
+            return $"Link3(Local={MeshOrigin}, Index={Index}, Parent#={ParentIndex})";
         }
 
-        public Link3 ConvertTo(UnitSystem target)
+        public new Link3 ConvertTo(UnitSystem target)
         {
-            UnitSystem u = Units;
-            float fl = JointProperties.Type <= JointType.SlideAlongZ
-                ? UnitFactors.Length(u, target) : 1;
-            float fa = JointProperties.Type <= JointType.SlideAlongZ
-                ? UnitFactors.Force(u, target) : UnitFactors.Torque(u, target);
-            float f_in = fl, f_out = fa;
-            if (JointProperties.Motion == Prescribed.Motion)
-            {
-                (f_in, f_out) = (f_out, f_in);
-            }
-            return new Link3(
-                target,
-                World,
-                Parent,
-                MassProperties.ConvertTo(target),
-                JointProperties,
-                LocalPosition.ConvertFromTo(Units, target),
-                fl * InitialDisplacement,
-                fl * InitialSpeed,
-                (t, r, v) => f_out * AppliedForce(t, new Pose(r.Position / fl, r.Orientation), v / fl));
+            return new Link3(this, target);
         }
+
+        #endregion
     }
 }

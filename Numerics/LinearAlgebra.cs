@@ -10,6 +10,15 @@ using static System.Math;
 
 namespace JA.Numerics
 {
+    public enum Axis2
+    {
+        X, Y
+    }
+    public enum Axis3
+    {
+        X, Y, Z
+    }
+
     public static class LinearAlgebra
     {
         public const float ZeroTolerance = 1e-6f;
@@ -71,6 +80,8 @@ namespace JA.Numerics
         #endregion
 
         #region Values
+        public static float Random(float minValue = 0, float maxValue = 1)
+            => minValue + (maxValue - minValue) * (float)RandomNumberGenerator.NextDouble();
 
         public static float Cap(this float value, float minValue = 0, float maxValue = 1)
         {
