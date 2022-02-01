@@ -1,7 +1,7 @@
 ﻿using System.Drawing;
 using System.Windows.Forms;
 
-namespace JA.Numerics.UI
+namespace JA.UI
 {
     using System.ComponentModel;
 

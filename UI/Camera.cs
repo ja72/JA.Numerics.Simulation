@@ -4,17 +4,13 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Numerics;
 using System.Windows.Forms;
+using System.ComponentModel;
 
-namespace JA.Numerics.UI
+namespace JA.UI
 {
-    using System.ComponentModel;
+    using JA.Numerics;
     using JA.Numerics.Simulation;
     using JA.Numerics.Simulation.Spatial;
-
-    public interface IVisible
-    {
-        void Render(Graphics g, Camera camera);
-    }
 
     public delegate void CameraPaintHandler(Graphics g, Camera camera);
 
@@ -184,19 +180,17 @@ namespace JA.Numerics.UI
             return (float)Math.Pow(λ.Cap(0, 1), 155f);
         }
 
-        void RenderCsys(Graphics g)
+        void RenderCsys(Graphics g, float scale=1)
         {
-            using (var pen = new Pen(Color.Black, 0))
-            {
-                var csys = Project(Vector3.Zero, Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
-                pen.CustomEndCap = new AdjustableArrowCap(0.6f, 0.2f, true);
-                pen.Color = Color.Red;
-                g.DrawLine(pen, csys[0], csys[1]);
-                pen.Color = Color.Green;
-                g.DrawLine(pen, csys[0], csys[2]);
-                pen.Color = Color.Blue;
-                g.DrawLine(pen, csys[0], csys[3]);
-            }
+            using var pen = new Pen(Color.Black, 0);
+            var csys = Project(Vector3.Zero, Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
+            pen.CustomEndCap = new AdjustableArrowCap(2f*scale, 8f*scale, true);
+            pen.Color = Color.Red;
+            g.DrawLine(pen, csys[0], csys[1]);
+            pen.Color = Color.Green;
+            g.DrawLine(pen, csys[0], csys[2]);
+            pen.Color = Color.Blue;
+            g.DrawLine(pen, csys[0], csys[3]);
         }
         public void SetupView(Graphics g)
         {

@@ -3,48 +3,77 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using JA.Numerics.UI;
+using JA.UI;
 
-namespace JA.Numerics.Simulation.Spatial
+namespace JA.Numerics.Simulation.Spatial.Solvers
 {
     [TypeConverter(typeof(ExpandableObjectConverter))]
-    public class Link3 : Body, 
+    public class Link3 : Body,
         IHasUnits<Link3>
     {
-
         #region Factory
-        internal Link3(Mesh mesh, World3 world, Pose meshPosition, MassProperties mass, Pose onWorld, JointProperties joint, float initialDisplacement = 0)
-            : base(mesh, world, mass, meshPosition)
+        internal Link3(Mesh mesh, Chain chain, Pose meshPosition, MassProperties mass, Pose onWorld, JointProperties joint, float initialDisplacement = 0)
+            : base(mesh, chain.World, mass, meshPosition)
         {
+            OnChain = chain;
             Parent = null;
-            World.AddLink(this);
+            OnChain.AddLink(this);
             JointProperties = joint;
             LocationOnParent = onWorld;
             InitialDisplacement = initialDisplacement;
             InitialSpeed = 0;
+            LocalMarker = 2*CG;
         }
         internal Link3(Mesh mesh, Link3 parent, Pose meshPosition, MassProperties mass, Pose onParent, JointProperties joint, float initialDisplacement = 0)
             : base(mesh, parent.World, mass, meshPosition)
         {
+            OnChain = parent.OnChain;
             Parent = parent??throw new ArgumentNullException(nameof(parent));
-            World.AddLink(this);
+            OnChain.AddLink(this);
             JointProperties = joint;
             LocationOnParent = onParent;
             InitialDisplacement = initialDisplacement;
             InitialSpeed = 0;
+            LocalMarker = 2*CG;
         }
-
+        internal Link3(Body body, Link3 parent, Pose onParent, JointProperties joint, float initialDisplacement = 0)
+            : base(body.Mesh, body.World, body.MassProperties, body.MeshOrigin)
+        {
+            OnChain = parent.OnChain;
+            Parent = parent??throw new ArgumentNullException(nameof(parent));
+            OnChain.AddLink(this);
+            JointProperties = joint;
+            LocationOnParent = onParent;
+            InitialDisplacement = initialDisplacement;
+            InitialSpeed = 0f;
+            LocalMarker = 2*CG;
+        }
+        internal Link3(Body body, Chain chain, Pose onParent, JointProperties joint, float initialDisplacement = 0)
+            : base(body.Mesh, chain.World, body.MassProperties, body.MeshOrigin)
+        {
+            OnChain = chain;
+            Parent = null;
+            OnChain.AddLink(this);
+            JointProperties = joint;
+            LocationOnParent = onParent;
+            InitialDisplacement = initialDisplacement;
+            InitialSpeed = 0f;
+            LocalMarker = 2*CG;
+        }
         public Link3(Link3 copy) : base(copy)
         {
-            this.Parent = copy.Parent;
-            this.AppliedForce = copy.AppliedForce;
-            this.JointProperties = copy.JointProperties;
-            this.InitialDisplacement = copy.InitialDisplacement;
-            this.InitialSpeed = copy.InitialSpeed;
-            this.LocationOnParent = copy.LocationOnParent;
+            OnChain =copy.OnChain;
+            Parent = copy.Parent;
+            AppliedForce = copy.AppliedForce;
+            JointProperties = copy.JointProperties;
+            InitialDisplacement = copy.InitialDisplacement;
+            InitialSpeed = copy.InitialSpeed;
+            LocationOnParent = copy.LocationOnParent;
+            LocalMarker = copy.LocalMarker;
         }
         public Link3(Link3 copy, UnitSystem target) : base(copy, target)
         {
@@ -60,16 +89,24 @@ namespace JA.Numerics.Simulation.Spatial
             }
 
             float fs = UnitFactors.Length(copy.Units, target);
-            this.Parent = copy.Parent;
-            this.LocationOnParent = copy.LocationOnParent.ConvertFromTo(u, target);
-            this.JointProperties = copy.JointProperties.ConvertFromTo(u, target);
-            this.InitialDisplacement = fs*copy.InitialDisplacement;
-            this.InitialSpeed = fs*copy.InitialSpeed;
-            this.AppliedForce = (t, r, v) => f_out * copy.AppliedForce(t, new Pose(r.Position / fs, r.Orientation), v / fs);
+            OnChain = copy.OnChain;
+            Parent = copy.Parent;
+            LocationOnParent = copy.LocationOnParent.ConvertFromTo(u, target);
+            JointProperties = copy.JointProperties.ConvertFromTo(u, target);
+            InitialDisplacement = fs*copy.InitialDisplacement;
+            InitialSpeed = fs*copy.InitialSpeed;
+            LocalMarker = fl*copy.LocalMarker;
+            AppliedForce = (t, r, v) => copy.AppliedForce(
+                t, 
+                r.ConvertFromTo(target, u), 
+                v.ConvertFromTo(target, u, UnitType.Length, ScrewType.Twist)
+            ).ConvertFromTo(u, target, UnitType.Force, ScrewType.Wrench);
         }
 
         public Link3 AddChild(Mesh mesh, Pose meshPosition, MassProperties mass, Pose onParent, JointProperties type, float initialDisplacement = 0)
             => new Link3(mesh, this, meshPosition, mass.ConvertTo(Units), onParent, type, initialDisplacement);
+        public Link3 AddChild(Body body, Pose onParent, JointProperties type, float initialDisplacement = 0)
+            => new Link3(body, this, onParent, type, initialDisplacement);
 
         public Link3 SlideAlongX(Mesh mesh, Pose meshPosition, MassProperties mass, Pose onParent, float initialDisplacement = 0)
             => AddChild(mesh, meshPosition, mass, onParent, JointType.SlideAlongX, initialDisplacement);
@@ -86,20 +123,20 @@ namespace JA.Numerics.Simulation.Spatial
             => AddChild(null, meshPosition, MassProperties.Zero, onParent, JointType.SlideAlongY, initialDisplacement)
                     .AddChild(mesh, Pose.Origin, mass, Pose.Origin, JointType.RotateAboutZ, initialAngle);
         public Link3 AddFree(Mesh mesh, Pose meshPosition, MassProperties mass, Pose onParent, float initialX, float intialY, float initialAngle)
-            => AddChild(null,meshPosition, MassProperties.Zero, onParent, JointType.SlideAlongX, initialX)
+            => AddChild(null, meshPosition, MassProperties.Zero, onParent, JointType.SlideAlongX, initialX)
                     .AddChild(null, Pose.Origin, MassProperties.Zero, Pose.Origin, JointType.SlideAlongY, intialY)
                     .AddChild(mesh, Pose.Origin, mass, Pose.Origin, JointType.RotateAboutZ, initialAngle);
 
         public void RemoveChild(Link3 child)
         {
-            World.RemoveChild(child);
+            OnChain.RemoveChild(child);
         }
         #endregion
 
         #region Tree
         [Category("Model")] public Link3 Parent { get; private set; }
-        [Category("Model")] public IList<Link3> Children { get => World.linkList.Where(f => f.Parent == this).ToList(); }
-        [Category("Model")] public int Index { get => World.linkList.IndexOf(this); }
+        [Category("Model")] public IList<Link3> Children { get => OnChain.linkList.Where(f => f.Parent == this).ToList(); }
+        [Category("Model")] public int Index { get => OnChain.linkList.IndexOf(this); }
         [Category("Model")] public int ParentIndex { get => Parent != null ? Parent.Index : -1; }
         [Category("Model")] public int Level { get => IsRoot ? 0 : Parent.Level + 1; }
         [Category("Model")] public bool IsRoot { get => Parent == null; }
@@ -108,10 +145,12 @@ namespace JA.Numerics.Simulation.Spatial
         #endregion
 
         #region Properties
+        public Chain OnChain { get; }
         public Pose LocationOnParent { get; set; }
         public JointProperties JointProperties { get; }
         public float InitialDisplacement { get; set; }
         public float InitialSpeed { get; set; }
+        public Vector3 LocalMarker { get; set; }
 
         #endregion
 
@@ -124,55 +163,6 @@ namespace JA.Numerics.Simulation.Spatial
         #endregion
 
         #region Methods
-        /// <summary>
-        /// Gets the pose across the joint given the joint angle q.
-        /// </summary>
-        /// <param name="q">The joint angle/distance.</param>
-        public Pose GetLocalStep(float q)
-        {
-            switch (JointProperties.Type)
-            {
-                case JointType.SlideAlongX:
-                    return Pose.AlongX(q);
-                case JointType.SlideAlongY:
-                    return Pose.AlongY(q);
-                case JointType.SlideAlongZ:
-                    return Pose.AlongZ(q);
-                case JointType.RotateAboutX:
-                    return Pose.AboutX(q);
-                case JointType.RotateAboutY:
-                    return Pose.AboutY(q);
-                case JointType.RotateAboutZ:
-                    return Pose.AboutZ(q);
-                default:
-                    throw new NotSupportedException("Unknown joint type.");
-            }
-        }
-        /// <summary>
-        /// Gets the joint axis.
-        /// </summary>
-        /// <param name="pose">The joint pose.</param>
-        public Vector33 GetAxis(Pose pose)
-        {
-            switch (JointProperties.Type)
-            {
-                case JointType.SlideAlongX:
-                    return Vector33.Twist(Vector3.UnitX.Rotate(pose.Orientation));
-                case JointType.SlideAlongY:
-                    return Vector33.Twist(Vector3.UnitY.Rotate(pose.Orientation));
-                case JointType.SlideAlongZ:
-                    return Vector33.Twist(Vector3.UnitZ.Rotate(pose.Orientation));
-                case JointType.RotateAboutX:
-                    return Vector33.Twist(Vector3.UnitX.Rotate(pose.Orientation), pose.Position, 0);
-                case JointType.RotateAboutY:
-                    return Vector33.Twist(Vector3.UnitY.Rotate(pose.Orientation), pose.Position, 0);
-                case JointType.RotateAboutZ:
-                    return Vector33.Twist(Vector3.UnitZ.Rotate(pose.Orientation), pose.Position, 0);
-                default:
-                    throw new NotSupportedException("Unknown joint type.");
-            }
-        }
-
 
         public override string ToString()
         {
@@ -182,6 +172,29 @@ namespace JA.Numerics.Simulation.Spatial
         public new Link3 ConvertTo(UnitSystem target)
         {
             return new Link3(this, target);
+        }
+
+        public override void Render(Graphics g, Camera camera, Pose pose)
+        {
+            base.Render(g, camera, pose);
+            
+            var dir = JointProperties.GetDirection(pose);
+            var pos = pose.Position;
+
+            var pts = camera.Project(pos-dir, pos, pos+dir);
+            float scale = 1;
+            using var pen = new Pen(Color.FromArgb(128, Color.Black), 0);
+            pen.CustomEndCap = new AdjustableArrowCap(2f*scale, 8f*scale, true);
+            pen.DashStyle = DashStyle.DashDot;
+            g.DrawLines(pen, pts);
+
+            var r_marker = Pose.FromLocal(pose, LocalMarker);
+            pts = camera.Project(r_marker);
+            g.FillEllipse(Brushes.HotPink, pts[0].X-2, pts[0].Y-2, 4, 4);
+
+            var r_cg = Pose.FromLocal(pose, MassProperties.CG);
+            pts = camera.Project(r_cg);
+            g.FillEllipse(Brushes.Black, pts[0].X-2, pts[0].Y-2, 4, 4);
         }
 
         #endregion

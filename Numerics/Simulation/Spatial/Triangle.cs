@@ -22,7 +22,7 @@ namespace JA.Numerics.Simulation.Spatial
         public Vector3 Normal { get => AreaVector.Unit(); }
         public float Area { get => AreaVector.Length(); }
 
-        private Vector3 AreaVector 
+        private Vector3 AreaVector
             => (Vector3.Cross(A, B)+ Vector3.Cross(B, C)+ Vector3.Cross(C, A)) / 2;
 
         public float DistanceTo(Vector3 point) => Vector3.Dot(Normal, point-A);

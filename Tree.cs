@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace JA.Numerics.Simulation
+namespace JA
 {
     public interface ITree<out TFrame>
         where TFrame : class, ITree<TFrame>

@@ -2,13 +2,13 @@
 using System.Drawing;
 using System.Linq;
 using System.Numerics;
-using JA.Numerics.UI;
+using JA.Numerics;
+using JA.UI;
 
-namespace JA.Numerics.Simulation.Spatial
+namespace JA.Numerics.Simulation.Spatial.Solvers
 {
     [TypeConverter(typeof(ExpandableObjectConverter))]
     public class MbdSolver :
-        IVisible,
         IHasUnits<MbdSolver>,
         INotifyPropertyChanged
     {
@@ -61,17 +61,17 @@ namespace JA.Numerics.Simulation.Spatial
             var next = Current;
             var K0 = CalcRate(Time, next);
 
-            next = Current + (elapsedTime / 2) * K0;
+            next = Current + elapsedTime / 2 * K0;
             var K1 = CalcRate(Time+elapsedTime/2, next);
 
-            next = Current + (elapsedTime / 2) * K1;
+            next = Current + elapsedTime / 2 * K1;
             var K2 = CalcRate(Time+elapsedTime/2, next);
 
             next = Current + elapsedTime * K2;
             var K3 = CalcRate(Time + elapsedTime, next);
 
             Time += elapsedTime;
-            Current += (elapsedTime / 6) * (K0 + 2 * K1 + 2 * K2 + K3);
+            Current += elapsedTime / 6 * (K0 + 2 * K1 + 2 * K2 + K3);
 
             OnPropertyChanged(nameof(Time));
             OnPropertyChanged(nameof(Current));
@@ -108,7 +108,7 @@ namespace JA.Numerics.Simulation.Spatial
             var rp = Vector33.TwistValue(motion, r);
             var qp = state.Pose.Orientation.Derivative(motion.Vector2);
             var pp = force.Vector1;
-            var Lp = force.Vector2 - LinearAlgebra.Cross(rp, state.Momentum.Vector1);
+            var Lp = force.Vector2 - rp.Cross(state.Momentum.Vector1);
 
             return new BodyState(
                 new Pose(rp, qp),
@@ -128,9 +128,7 @@ namespace JA.Numerics.Simulation.Spatial
                 var body = Bodies[k];
                 var state = Current.State[k];
                 if (body.Mesh == null) continue;
-                var mesh = body.Mesh;
-                var pose = Pose.FromLocal(state.Pose, body.MeshOrigin);
-                mesh.Render(g, camera, pose);
+                body.Render(g, camera, state.Pose);
             }
 
         }

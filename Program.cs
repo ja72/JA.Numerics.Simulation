@@ -19,7 +19,7 @@ namespace JA
 
             //Spatial.World3.Demo();
 
-            Application.Run(new Numerics.UI.Render3DForm());
+            Application.Run(new UI.Render3DForm());
         }
     }
 }

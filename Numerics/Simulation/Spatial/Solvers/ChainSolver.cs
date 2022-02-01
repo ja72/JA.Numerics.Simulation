@@ -2,17 +2,18 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Numerics;
-using JA.Numerics.Simulation.Spatial;
-using JA.Numerics.UI;
+using System.Windows.Forms;
+using JA.Numerics;
+using JA.UI;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
-namespace JA.Numerics.Simulation.Spatial
+namespace JA.Numerics.Simulation.Spatial.Solvers
 {
     [TypeConverter(typeof(ExpandableObjectConverter))]
-    public class ChainSolver : 
-        IVisible,
+    public class ChainSolver :
         IHasUnits<ChainSolver>,
         INotifyPropertyChanged
     {
@@ -21,28 +22,34 @@ namespace JA.Numerics.Simulation.Spatial
         internal void OnPropertyChanged(string propertyName)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
-        public ChainSolver(World3 world)
+        public ChainSolver(Chain chain)
         {
-            World = world;
-            Units = world.Units;
-            Gravity = world.Gravity;
-            Bodies = FromRootUp(world.Links).ToArray();
+            World = chain.World;
+            Units = chain.Units;
+            Gravity = chain.World.Gravity;
+            Bodies = FromRootUp(chain.linkList).ToArray();
             Parent = GetParents(Bodies).ToArray();
             Children = GetChildren(Bodies).ToArray();
-
+            ContactPoint = chain.ContactPoint;
+            ContactNormal = chain.ContactNormal;
+            EnableContacts = false;
             Reset();
         }
 
-        ChainSolver(World3 world, Vector3 gravity, Link3[] chain, int[] parent, int[][] children, float time, ChainStates current, UnitSystem target) : this(world)
+        ChainSolver(ChainSolver copy, UnitSystem target)
         {
-            float fl = UnitFactors.Length(world.Units, target);
+            float fl = UnitFactors.Length(copy.Units, target);
+            World = copy.World;
             Units = target;
-            Gravity=fl*gravity;
-            Bodies=chain.Select((item)=>item.ConvertTo(target)).ToArray();
-            Parent=parent;
-            Children=children;
-            Time = time;
-            Current=current;
+            Gravity=fl*copy.Gravity;
+            Bodies=copy.Bodies.Select((item) => item.ConvertTo(target)).ToArray();
+            Parent=copy.Parent;
+            Children=copy.Children;
+            Time = copy.Time;
+            Current=copy.Current.ConvertFromTo(copy.Units, target);
+            ContactNormal = copy.ContactNormal;
+            ContactPoint = fl * copy.ContactPoint;
+            EnableContacts = copy.EnableContacts;
         }
 
         #region Static Helpers
@@ -100,57 +107,67 @@ namespace JA.Numerics.Simulation.Spatial
         [Category("Simulation")]
         public float Time { get; set; }
         [Category("Simulation")]
-        public ChainStates Current { get; private set; } 
+        public ChainStates Current { get; private set; }
+
+        /// <summary>
+        /// Direction of Contact
+        /// </summary>
+        [Category("Simulation")] 
+        public Vector3 ContactNormal { get; set; }
+        /// <summary>
+        /// Location of Contact
+        /// </summary>
+        [Category("Simulation")] 
+        public Vector3 ContactPoint { get; set; }
+        /// <summary>
+        /// Gets or sets a value indicating whether contacts are considered.
+        /// </summary>
+        [Category("Simulation")]
+        public bool EnableContacts { get; set; }
         #endregion
 
-        public FrameKinematics[] GetKinematics(float time, ChainStates states) 
+        public FrameKinematics[] GetKinematics(float time, ChainStates states)
         {
             int n = Bodies.Length;
             var kin = new FrameKinematics[n];
             for (int i = 0; i < n; i++)
             {
-                var item = Bodies[i];
+                var body = Bodies[i];
                 var state = states[i];
                 var i_parent = Parent[i];
                 var prev = i_parent >= 0 ? kin[i_parent] : FrameKinematics.Zero;
                 // go to frame, center of mass, or base of joint
-                var jpose = Pose.FromLocal(prev.Position, item.LocationOnParent);
-                var mpose = Pose.FromLocal(jpose, item.MeshOrigin);
-                var cg = Pose.FromLocal(mpose, item.MassProperties.CG);
-                var vel = prev.Velocity;
-                var acc = prev.Acceleration;
+                // bottom of joint
+                var bot = Pose.FromLocal(prev.Position, body.LocationOnParent);
+                // top of joint
+                var top = Pose.FromLocal(bot, body.JointProperties.GetLocalStep(state.Angle));
+                // mesh origin
+                var mpose = Pose.FromLocal(top, body.MeshOrigin);
+                // center of mass
+                var cg = Pose.FromLocal(mpose, body.MassProperties.CG);
                 // joint properties
-                jpose = Pose.FromLocal(jpose, item.GetLocalStep(state.Angle));
-                var si = item.GetAxis(jpose);
-                vel += si * state.Speed;
-                var kap = Vector33.CrossTwistTwist(vel, (si * state.Speed));
+                var Joint = new JointInfo(body.JointProperties, time, state);
+                var s = body.JointProperties.GetAxis(top);
+                var Δv = s * state.Speed;
+                var v = prev.Velocity + Δv;
+                var κ = Vector33.CrossTwistTwist(v, Δv);
+                var a = prev.Acceleration + s*Joint.Acceleration + κ;
                 // mass properties
-                var I = item.MassProperties.Spi(mpose.Orientation, cg);
-                var M = item.MassProperties.Spm(mpose.Orientation, cg);
-                var wt = item.MassProperties.GetWeight(Gravity, cg);
-                if (item.AppliedForce != null && item.AppliedForce != World3.ZeroForce)
+                var I = body.MassProperties.Spi(mpose.Orientation, cg);
+                var M = body.MassProperties.Spm(mpose.Orientation, cg);
+                var w = body.MassProperties.GetWeight(Gravity, cg);
+                if (body.AppliedForce != null && body.AppliedForce != World3.ZeroForce)
                 {
-                    wt += item.AppliedForce(time, mpose, vel);
+                    w += body.AppliedForce(time, mpose, v);
                 }
-                var info = new JointInfo(item.JointProperties, time, state);
-                var mom = I * vel;
-                var pee = Vector33.CrossTwistWrench(vel, mom);
-                var frc = I * acc + pee;
-                frc += wt;
+                var ell = I * v;
+                var p = Vector33.CrossTwistWrench(v, ell);
+                var f = I * a + p - w;
+
                 kin[i] = new FrameKinematics(
-                    info,
-                    jpose,
-                    cg,
-                    si,
-                    vel,
-                    kap,
-                    I,
-                    M,
-                    mom,
-                    pee,
-                    wt,
-                    acc,
-                    frc);
+                    Joint, top, cg, s, v, κ, 
+                    I, M,
+                    ell, p, w, a, f);
             }
             return kin;
         }
@@ -168,6 +185,7 @@ namespace JA.Numerics.Simulation.Spatial
                 kin[i].Force = frc;
             }
             var art = new FrameArticulated[n];
+
             for (int i = n - 1; i >= 0; i--)
             {
                 var I = kin[i].SpatialInertia;
@@ -184,7 +202,7 @@ namespace JA.Numerics.Simulation.Spatial
                     d += RUn * (An * κn + dn) + Tn * Qn;
                 }
                 var si = kin[i].JointAxis;
-                var Ti = I * si / (si * (I * si));
+                var Ti = I * si / Vector33.Dot(si, I * si);
                 var RUi = 1 - Vector33.Outer(Ti, si);
 
                 art[i] = new FrameArticulated(I, d, Ti, RUi);
@@ -192,13 +210,13 @@ namespace JA.Numerics.Simulation.Spatial
             return art;
         }
 
-        public JointInfo[] CalcDynamics(out FrameKinematics[] kin)
-            => CalcDynamics(Time, Current, out kin);
-        public JointInfo[] CalcDynamics(float time, ChainStates state, out FrameKinematics[] kin)
+        public JointInfo[] CalcDynamics(out FrameKinematics[] kin, out FrameArticulated[] art)
+            => CalcDynamics(Time, Current, out kin, out art);
+        public JointInfo[] CalcDynamics(float time, ChainStates state, out FrameKinematics[] kin, out FrameArticulated[] art)
         {
             int n = Bodies.Length;
             kin = GetKinematics(time, state);
-            var art = GetArticulated(kin);
+            art = GetArticulated(kin);
 
             JointInfo[] dyn = new JointInfo[n];
             for (int i = 0; i < n; i++)
@@ -225,18 +243,18 @@ namespace JA.Numerics.Simulation.Spatial
                     case Prescribed.Motion:
                         // Q = sᵀ*(A*(s*qpp + κ + a0) + d)
                         ai = a0 + si * qpp + κi;
-                        tau = si * (Ai * (si * qpp + a0 + κi) + di);
+                        tau = Vector33.Dot(si, (Ai * (si * qpp + a0 + κi) + di));
                         fi = Ti * tau + RUi * (Ai * (a0 + κi) + di);
                         break;
                     case Prescribed.Load:
                         // qpp = (Q - sᵀ*(A*(κ + a0) + d))/(sᵀ*A*s)
-                        qpp = (tau - si * (Ai * (a0 + κi) + di)) / (si * (Ai * si));
+                        qpp = (tau - Vector33.Dot(si, (Ai * (a0 + κi) + di))) / Vector33.Dot(si, (Ai * si));
                         ai = a0 + si * qpp + κi;
                         fi = Ai * ai + di;
                         break;
                     default:
                         throw new NotSupportedException($"{item.JointProperties.Motion} is not supported.");
-                }                
+                }
                 kin[i].Acceleration = ai;
                 kin[i].Force = fi;
                 dyn[i] = new JointInfo(q, qp, qpp, tau, item.JointProperties);
@@ -244,9 +262,88 @@ namespace JA.Numerics.Simulation.Spatial
 
             return dyn;
         }
+
+        public int[] GetConstrainedInverseInertia(int index, FrameKinematics[] kin, FrameArticulated[] art, out Matrix33[] Φ, out Matrix33[] Y)
+        {
+            // Assume an impulse is applied to the indexed body
+            // Find the chain of bodies to the ground
+            if (index<0)
+            {
+                Φ=null;
+                Y=null;
+                return Array.Empty<int>();
+            }
+
+            var chain = new List<int>();
+            do
+            {
+                chain.Add(index);
+                index = Parent[index];
+            } while (index>=0);
+            chain.Reverse();
+            int n = chain.Count;
+            Φ = new Matrix33[n];
+            var Λ = new Matrix33[n];
+            Y = new Matrix33[n];
+            var Φn = Matrix33.Identity;
+            for (int i = n - 1; i >= 0; i--)
+            { 
+                index = chain[i]; 
+                var si = kin[index].JointAxis;
+                var IA = art[index].ArticulatedInertia;
+                Λ[index] = Vector33.Outer(si, si)/Vector33.Dot(si, IA*si);
+                Φ[index] = (1-IA*Λ[index])*Φn;
+                Φn = Φ[index];
+            }
+            var Yp = Matrix33.Zero;
+            for (int i = 0; i < n; i++)
+            {
+                index = chain[i];
+                var IA = art[index].ArticulatedInertia;
+                Φn = i<n-1 ? Φ[chain[i+1]] : Matrix33.Identity;
+                Y[index] = (1-Λ[index]*IA)*Yp + Λ[index]*Φn;
+                Yp = Y[index];
+            }
+
+            return chain.ToArray();
+        }
+
+        public bool HandleContact(float time, ref ChainStates states)
+        {
+            if(ContactNormal.LengthSquared()==0) return false;
+            var kin = GetKinematics(time, states);
+            var art = GetArticulated(kin);
+            int index = Bodies.Length-1;
+            var pos = Pose.FromLocal(kin[index].Position, Bodies[index].LocalMarker);
+            var d = Vector3.Dot(ContactNormal, pos - ContactPoint);
+            var n = Vector33.Wrench(ContactNormal, ContactPoint, 0);
+            var chain = GetConstrainedInverseInertia(index, kin, art, out var Φ, out var Y);
+            var v_imp = Vector33.Dot(n, kin[index].Velocity);
+            if (d<=0 && v_imp<0)
+            {
+                var m_imp = 1/Vector33.Dot(n, Y[index]*n);
+                var J = (1+0f)*m_imp*v_imp;
+                var Yp = Matrix33.Zero;
+                for (int i = 0; i < chain.Length; i++)
+                {
+                    index = chain[i];
+                    var state = states.State[index];
+                    var si = kin[index].JointAxis;
+                    var IA = art[index].ArticulatedInertia;
+                    var Φn = i<chain.Length-1 ? Φ[chain[i+1]] : Matrix33.Identity;
+                    var Δqp = -Vector33.Dot(si, (Φn-IA*Yp)*n)/Vector33.Dot(si, IA*si)*J;
+                    states.State[index] = new JointState(state.Type, state.Angle, state.Speed +  Δqp);
+                    Yp = Y[index];
+                }
+
+                return true;
+            }
+            return false;
+        }
+
         public ChainStates CalcRate(float time, ChainStates next)
         {
-            var dyn = CalcDynamics(time, next, out _);
+            var dyn = CalcDynamics(time, next, out _, out _);
             return new ChainStates(dyn.Select((item) => item.GetRate()).ToArray());
         }
 
@@ -261,17 +358,22 @@ namespace JA.Numerics.Simulation.Spatial
             var next = Current;
             var K0 = CalcRate(Time, next);
 
-            next = Current + (elapsedTime / 2) * K0;
+            next = Current + elapsedTime / 2 * K0;
+            if(EnableContacts) HandleContact(Time+elapsedTime/2, ref next);
             var K1 = CalcRate(Time+elapsedTime/2, next);
 
-            next = Current + (elapsedTime / 2) * K1;
+            next = Current + elapsedTime / 2 * K1;
+            if (EnableContacts) HandleContact(Time+elapsedTime/2, ref next);
             var K2 = CalcRate(Time+elapsedTime/2, next);
 
             next = Current + elapsedTime * K2;
+            if (EnableContacts) HandleContact(Time+elapsedTime, ref next);
             var K3 = CalcRate(Time + elapsedTime, next);
 
             Time += elapsedTime;
-            Current += (elapsedTime / 6) * (K0 + 2 * K1 + 2 * K2 + K3);
+            next = Current + elapsedTime / 6 * (K0 + 2 * K1 + 2 * K2 + K3);
+            if (EnableContacts) HandleContact(Time, ref next);
+            Current = next;
 
             OnPropertyChanged(nameof(Time));
             OnPropertyChanged(nameof(Current));
@@ -300,21 +402,28 @@ namespace JA.Numerics.Simulation.Spatial
 
         public void Render(Graphics g, Camera camera)
         {
+            if (EnableContacts && ContactNormal.LengthSquared()>0)
+            {
+                var pts = camera.Project(ContactPoint, ContactPoint + ContactNormal);
+                g.FillEllipse(Brushes.MediumPurple, pts[0].X-2, pts[0].Y-2, 4, 4);
+                float scale = 1;
+                using var pen = new Pen(Color.MediumPurple, 0);
+                pen.CustomEndCap = new AdjustableArrowCap(2f*scale, 8f*scale, true);
+                g.DrawLines(pen, pts);
+            }
+
             var kin = GetKinematics(Time, Current);
             for (int k = 0; k < Bodies.Length; k++)
             {
                 var body = Bodies[k];
-                var state = Current[k];
-                if (body.Mesh == null) continue;
-                var mesh = body.Mesh;
-                var pose = Pose.FromLocal(kin[k].Position, body.MeshOrigin);
-                mesh.Render(g, camera, pose);
+                var pose = kin[k].Position;
+                body.Render(g, camera, pose);
             }
         }
 
         public ChainSolver ConvertTo(UnitSystem target)
         {
-            return new ChainSolver(World, Gravity, Bodies, Parent, Children, Time, Current, target);
+            return new ChainSolver(this, target);
         }
     }
 }

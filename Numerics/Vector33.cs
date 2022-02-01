@@ -5,9 +5,16 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using JA.Numerics.Simulation;
 
 namespace JA.Numerics
 {
+    public enum ScrewType
+    {
+        Twist,
+        Wrench
+    }
+
     [TypeConverter(typeof(ExpandableObjectConverter))]
     public struct Vector33 : IEquatable<Vector33>
     {
@@ -126,7 +133,6 @@ namespace JA.Numerics
         public static Vector33 operator *(float a, Vector33 b) => Scale(a, b);
         public static Vector33 operator *(Vector33 a, float b) => Scale(b, a);
         public static Vector33 operator /(Vector33 a, float b) => Scale(1 / b, a);
-        public static float operator *(Vector33 a, Vector33 b) => Dot(a, b);
         #endregion
 
         #region IEquatable Members
@@ -203,6 +209,40 @@ namespace JA.Numerics
             $"{data.m_1.X:g3},{data.m_1.Y:g3},{data.m_1.Z:g3} | " +
             $"{data.m_2.X:g3},{data.m_2.Y:g3},{data.m_2.Z:g3})";
         #endregion
+
+        public Vector33 ConvertFromTo(UnitSystem units, UnitSystem target, UnitType valueUnit)
+        {
+            switch (valueUnit)
+            {
+                case UnitType.Length:
+                    return ConvertFromTo(units, target, valueUnit, ScrewType.Twist);
+                case UnitType.Mass:
+                case UnitType.Force:
+                    return ConvertFromTo(units, target, valueUnit, ScrewType.Wrench);
+                case UnitType.Temperature:
+                case UnitType.None:
+                case UnitType.Time:
+                default:
+                    throw new NotSupportedException(valueUnit.ToString());
+            }
+        }
+        public Vector33 ConvertFromTo(UnitSystem units, UnitSystem target, UnitType valueUnit, ScrewType type)
+            => ConvertFromTo(units, target, (Unit)valueUnit, type);
+        public Vector33 ConvertFromTo(UnitSystem units, UnitSystem target, Unit valueUnit, ScrewType type)
+        {
+            if (units == target) return this;
+            var fl = UnitFactors.Length(units, target);
+            var ff = valueUnit.Convert(units, target);
+            switch (type)
+            {
+                case ScrewType.Twist:
+                    return new Vector33(fl*ff*data.m_1, ff*data.m_2);
+                case ScrewType.Wrench:
+                    return new Vector33(ff*data.m_1, fl*ff*data.m_2);
+                default:
+                    throw new NotSupportedException(type.ToString());
+            }
+        }
 
     }
 }

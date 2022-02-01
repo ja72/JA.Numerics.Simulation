@@ -1,19 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Numerics;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Numerics;
 
-namespace JA.Numerics.UI
+namespace JA.UI
 {
     using JA.Numerics.Simulation;
     using JA.Numerics.Simulation.Spatial;
+    using JA.Numerics.Simulation.Spatial.Solvers;
 
     public partial class Render3DForm : Form
     {
@@ -105,10 +98,14 @@ namespace JA.Numerics.UI
 
             //Demo.DemoSphere(Scene);
             //Demo.Demo4PhoneFlip(Scene);
-            Demo.ChainDemo(Scene);
-
+            var pivot = new Vector3(-2f, 2f, 0f);
+            Demo.ChainDemo(Scene, 4, pivot);
+            Scene.ChainList[0].Links[0].InitialDisplacement = -90f.Deg();
+            Scene.ChainList[0].Links[0].InitialSpeed = 2f;
 
             MbdSolver = Scene.GetMbdSolver();
+            ChainSolver = Scene.GetChainSolver();
+
             this.MbdSolver.PropertyChanged += (s, ev) =>
             {
                 if (object.ReferenceEquals(propertyGrid1.SelectedObject, MbdSolver))
@@ -117,7 +114,6 @@ namespace JA.Numerics.UI
                 }
             };
 
-            ChainSolver = Scene.GetChainSolver();
             this.ChainSolver.PropertyChanged += (s, ev) =>
             {
                 if (object.ReferenceEquals(propertyGrid1.SelectedObject, ChainSolver))

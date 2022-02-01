@@ -1,8 +1,9 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Linq;
+using JA.Numerics;
 
-namespace JA.Numerics.Simulation.Spatial
+namespace JA.Numerics.Simulation.Spatial.Solvers
 {
     [TypeConverter(typeof(ExpandableObjectConverter))]
     public class ChainStates : ICanConvert<ChainStates>

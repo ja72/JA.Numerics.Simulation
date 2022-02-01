@@ -80,28 +80,30 @@
     <Compile Include="Numerics\MatrixShape.cs" />
     <Compile Include="Numerics\Simulation\Demo.cs" />
     <Compile Include="Numerics\Simulation\Spatial\Body.cs" />
-    <Compile Include="Numerics\Simulation\Spatial\ChainStates.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Solvers\Chain.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Solvers\ChainStates.cs" />
     <Compile Include="Numerics\Simulation\Spatial\Geometry.cs" />
-    <Compile Include="Numerics\Simulation\Spatial\Link3.cs" />
-    <Compile Include="Numerics\Simulation\Spatial\MbdSolver.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Solvers\Link3.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Solvers\MbdSolver.cs" />
     <Compile Include="Numerics\Simulation\Spatial\Mesh.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Object.cs" />
     <Compile Include="Numerics\Simulation\Spatial\Polygon.cs" />
     <Compile Include="Numerics\Simulation\Spatial\World3.cs" />
-    <Compile Include="Numerics\Simulation\Tree.cs" />
+    <Compile Include="Tree.cs" />
     <Compile Include="Numerics\Simulation\Spatial\Triangle.cs" />
-    <Compile Include="Numerics\Simulation\Spatial\BodyState.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Solvers\BodyState.cs" />
     <Compile Include="Numerics\Simulation\Materials.cs" />
-    <Compile Include="Numerics\Simulation\Spatial\MbdStates.cs" />
-    <Compile Include="Numerics\UI\Camera.cs" />
-    <Compile Include="Numerics\UI\Gdi.cs" />
-    <Compile Include="Numerics\UI\MouseControl.cs" />
-    <Compile Include="Numerics\UI\Render3DForm.cs">
+    <Compile Include="Numerics\Simulation\Spatial\Solvers\MbdStates.cs" />
+    <Compile Include="UI\Camera.cs" />
+    <Compile Include="UI\Gdi.cs" />
+    <Compile Include="UI\MouseControl.cs" />
+    <Compile Include="UI\Render3DForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Numerics\UI\Render3DForm.Designer.cs">
+    <Compile Include="UI\Render3DForm.Designer.cs">
       <DependentUpon>Render3DForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="Numerics\Simulation\Spatial\Solid.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Solvers\Solid.cs" />
     <Compile Include="Numerics\Simulation\Units.cs" />
     <Compile Include="Numerics\Vector.cs" />
     <Compile Include="Numerics\Matrix.cs" />
@@ -117,10 +119,10 @@
     <Compile Include="Numerics\Simulation\Planar\Pose.cs" />
     <Compile Include="Numerics\Simulation\Planar\Simulation.cs" />
     <Compile Include="Numerics\Vector21.cs" />
-    <Compile Include="Numerics\Simulation\Spatial\JointState.cs" />
-    <Compile Include="Numerics\Simulation\Spatial\JointProperties.cs" />
-    <Compile Include="Numerics\Simulation\Spatial\FrameKinematics.cs" />
-    <Compile Include="Numerics\Simulation\Spatial\ChainSolver.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Solvers\JointState.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Solvers\JointProperties.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Solvers\FrameKinematics.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Solvers\ChainSolver.cs" />
     <Compile Include="Numerics\Simulation\Spatial\MassProperties.cs" />
     <Compile Include="Numerics\Matrix3.cs" />
     <Compile Include="Numerics\Matrix33.cs" />
@@ -137,7 +139,6 @@
   <ItemGroup>
     <None Include=".editorconfig" />
     <None Include="App.config" />
-    <None Include="Numerics\Simulation\Spatial\Spatail.cd" />
     <None Include="packages.config" />
     <None Include="README.md" />
   </ItemGroup>
@@ -154,7 +155,7 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Numerics\UI\Render3DForm.resx">
+    <EmbeddedResource Include="UI\Render3DForm.resx">
       <DependentUpon>Render3DForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">

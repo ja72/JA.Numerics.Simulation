@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace JA.Numerics.Simulation.Spatial
+namespace JA.Numerics.Simulation.Spatial.Solvers
 {
     [TypeConverter(typeof(ExpandableObjectConverter))]
     public readonly struct BodyState : ICanConvert<BodyState>
@@ -24,8 +24,8 @@ namespace JA.Numerics.Simulation.Spatial
             float fm = UnitFactors.Momentum(units, target);
             float fmm = UnitFactors.AngularMomentum(units, target);
             return new BodyState(
-                new Pose(fl*Pose.Position, Pose.Orientation),
-                new Vector33(fm*Momentum.Vector1, fmm*Momentum.Vector2));
+                Pose.ConvertFromTo(units, target),
+                Momentum.ConvertFromTo(units, target, Unit.Momentum, ScrewType.Wrench));
         }
 
 
@@ -38,12 +38,12 @@ namespace JA.Numerics.Simulation.Spatial
             => new BodyState(
                 factor * a.Pose,
                 factor * a.Momentum);
-        public static BodyState Add(BodyState a, BodyState b) 
+        public static BodyState Add(BodyState a, BodyState b)
             => new BodyState(
                 a.Pose + b.Pose,
                 a.Momentum + b.Momentum);
 
-        public static BodyState Subtract(BodyState a, BodyState b) 
+        public static BodyState Subtract(BodyState a, BodyState b)
             => new BodyState(
                 a.Pose - b.Pose,
                 a.Momentum - b.Momentum);

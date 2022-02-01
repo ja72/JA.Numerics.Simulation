@@ -1,12 +1,13 @@
 ﻿using System.ComponentModel;
 using System.Numerics;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
-namespace JA.Numerics.Simulation.Spatial
+namespace JA.Numerics.Simulation.Spatial.Solvers
 {
     [TypeConverter(typeof(ExpandableObjectConverter))]
     public struct FrameKinematics
     {
-        public FrameKinematics(
+        internal FrameKinematics(
             in JointInfo joint,
             in Pose position,
             in Vector3 cgPosition,
@@ -52,7 +53,7 @@ namespace JA.Numerics.Simulation.Spatial
         {
             return MaterialAcceleration(
                 Acceleration.TwistAt(target),
-                Velocity.TwistAt(target), 
+                Velocity.TwistAt(target),
                 Velocity.Vector2);
         }
         public Vector3 CgAccleration { get => MaterialAccelerationAt(CgPosition); }
@@ -77,9 +78,9 @@ namespace JA.Numerics.Simulation.Spatial
             Vector33.Zero,
             Vector33.Zero);
         public static Vector3 MaterialAcceleration(Vector3 spatialAcceleration, Vector3 velocity, Vector3 omega)
-            => spatialAcceleration + LinearAlgebra.Cross(omega, velocity);
+            => spatialAcceleration + omega.Cross(velocity);
         public static Vector3 SpatialAcceleration(Vector3 materialAcceleration, Vector3 velocity, Vector3 omega)
-            => materialAcceleration - LinearAlgebra.Cross(omega, velocity);
+            => materialAcceleration - omega.Cross(velocity);
     }
 
     public struct FrameArticulated

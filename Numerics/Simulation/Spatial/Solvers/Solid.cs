@@ -1,9 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Numerics;
-using static System.Windows.Forms.AxHost;
 
-namespace JA.Numerics.Simulation.Spatial
+namespace JA.Numerics.Simulation.Spatial.Solvers
 {
 
     [TypeConverter(typeof(ExpandableObjectConverter))]
@@ -34,7 +33,7 @@ namespace JA.Numerics.Simulation.Spatial
         }
 
         public Pose InitialDisplacement { get; set; }
-        public Vector3 InitialTranslationalVelocity {get; set; }
+        public Vector3 InitialTranslationalVelocity { get; set; }
         public Vector3 InitialRotationalVelocity { get; set; }
 
         public BodyState GetInitialState()
@@ -93,7 +92,7 @@ namespace JA.Numerics.Simulation.Spatial
             InitialRotationalVelocity = omg;
         }
         public void SetMotion(Vector33 motion)
-{
+        {
             var cg = Pose.FromLocal(InitialDisplacement, CG);
             InitialTranslationalVelocity = motion.TwistAt(cg);
             InitialRotationalVelocity = motion.Vector2;

@@ -10,7 +10,10 @@ using static System.Math;
 
 namespace JA.Numerics.Simulation.Spatial
 {
-    using JA.Numerics.UI;
+    using JA.Numerics;
+    using JA.Numerics.Simulation;
+    using JA.Numerics.Simulation.Spatial;
+    using JA.UI;
 
     [TypeConverter(typeof(ExpandableObjectConverter))]
     public class Element
@@ -30,7 +33,7 @@ namespace JA.Numerics.Simulation.Spatial
         }
         public override string ToString()
         {
-            return $"Face(Color={Color}, Nodes=[{string.Join(",",Face)}])";
+            return $"Face(Color={Color}, Nodes=[{string.Join(",", Face)}])";
         }
     }
     [TypeConverter(typeof(ExpandableObjectConverter))]
@@ -76,9 +79,9 @@ namespace JA.Numerics.Simulation.Spatial
                     dc = (trig.A + trig.B + trig.C) / 4;
 
                     dI = 6f * (
-                        LinearAlgebra.Mmoi(trig.A + trig.B)
-                        + LinearAlgebra.Mmoi(trig.B + trig.C)
-                        + LinearAlgebra.Mmoi(trig.C + trig.A)) / 120;
+                        (trig.A + trig.B).Mmoi()
+                        + (trig.B + trig.C).Mmoi()
+                        + (trig.C + trig.A).Mmoi()) / 120;
 
                     volume += dV;
                     center += dV * dc;
@@ -88,11 +91,11 @@ namespace JA.Numerics.Simulation.Spatial
             center /= volume;
             specificMmoi /= volume;
 
-            specificMmoi -= LinearAlgebra.Mmoi(center);
+            specificMmoi -= center.Mmoi();
         }
         public MassProperties GetMmoiFromMass(float mass)
         {
-            GetVolumeProperties(out var volume, out var c, out var I);
+            GetVolumeProperties(out _, out var c, out var I);
             I *= mass;
             return new MassProperties(Units, mass, I, c);
         }
@@ -148,7 +151,7 @@ namespace JA.Numerics.Simulation.Spatial
                     int j = (i+1) % nodes.Length;
                     nodeList.Add((nodes[i] + nodes[j])/2);
                 }
-                nodeList.Add(LinearAlgebra.Average(nodes));
+                nodeList.Add(nodes.Average());
 
                 AddFace(color, face[0], k+0, k+4, k+3); // A
                 AddFace(color, k+0, face[1], k+1, k+4); // B
@@ -159,7 +162,7 @@ namespace JA.Numerics.Simulation.Spatial
             {
                 elementList.RemoveAt(index);
                 int k = nodeList.Count;
-                nodeList.Add(LinearAlgebra.Average(nodes));
+                nodeList.Add(nodes.Average());
 
                 for (int i = 0; i < nodes.Length; i++)
                 {
@@ -384,33 +387,31 @@ namespace JA.Numerics.Simulation.Spatial
             => Render(g, camera, Pose.Origin, showMesh);
         public void Render(Graphics g, Camera camera, Pose pose, bool showMesh = false)
         {
-            using (var pen = new Pen(Color.Black, 0))
-            using (var fill = new SolidBrush(Color.Black))
+            using var pen = new Pen(Color.Black, 0);
+            using var fill = new SolidBrush(Color.Black);
+            for (int index = 0; index < elementList.Count; index++)
             {
-                for (int index = 0; index < elementList.Count; index++)
-                {
-                    var element = elementList[index];
-                    var gp = new GraphicsPath();
-                    var poly = GetPolygon(index, pose);
+                var element = elementList[index];
+                var gp = new GraphicsPath();
+                var poly = GetPolygon(index, pose);
 
-                    gp.AddPolygon(camera.Project(poly));
-                    if (camera.IsVisible(poly))
-                    {
-                        var (H, S, L) = element.Color.GetHsl();
-                        var diff = camera.DiffuseLight(poly);
-                        var spec = camera.SpecularLight(poly);
-                        L = L.Cap(0, 0.2f) + diff.Cap(-0.1f, 0.3f) + spec.Cap(0, 0.2f);
-                        fill.Color = (H, S, L).GetColor(0.5f);
-                        g.FillPath(fill, gp);
-                    }
-                    if (showMesh && camera.IsVisible(poly))
-                    {
-                        var (H, S, L) = element.Color.GetHsl();
-                        var diff = camera.DiffuseLight(poly);
-                        L = (L-0.2f + 0.2f* diff).Cap(0, 1f);
-                        pen.Color = (H, S, L).GetColor();
-                        g.DrawPath(pen, gp);
-                    }
+                gp.AddPolygon(camera.Project(poly));
+                if (camera.IsVisible(poly))
+                {
+                    var (H, S, L) = element.Color.GetHsl();
+                    var diff = camera.DiffuseLight(poly);
+                    var spec = camera.SpecularLight(poly);
+                    L = L.Cap(0, 0.2f) + diff.Cap(-0.1f, 0.3f) + spec.Cap(0, 0.2f);
+                    fill.Color = (H, S, L).GetColor(0.5f);
+                    g.FillPath(fill, gp);
+                }
+                if (showMesh && camera.IsVisible(poly))
+                {
+                    var (H, S, L) = element.Color.GetHsl();
+                    var diff = camera.DiffuseLight(poly);
+                    L = (L-0.2f + 0.2f* diff).Cap(0, 1f);
+                    pen.Color = (H, S, L).GetColor();
+                    g.DrawPath(pen, gp);
                 }
             }
         }

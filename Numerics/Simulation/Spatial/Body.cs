@@ -1,17 +1,17 @@
 ﻿using System.ComponentModel;
+using System.Drawing;
 using System.Numerics;
+using JA.UI;
 
 namespace JA.Numerics.Simulation.Spatial
 {
     [TypeConverter(typeof(ExpandableObjectConverter))]
     public class Body : Geometry
     {
-        protected Body(World3 world, MassProperties massProperties, Pose localPosition)
-            : this(null, world, massProperties, localPosition) { }
-        protected Body(Mesh mesh, World3 world, MassProperties massProperties, Pose localPosition)
+        public Body(Mesh mesh, World3 world, MassProperties massProperties, Pose localPosition)
             : this(mesh, world.Units, world, massProperties, localPosition) { }
-        protected Body(Mesh mesh, UnitSystem units, World3 world, MassProperties massProperties, Pose localPosition)
-            : base(mesh, world, localPosition)
+        public Body(Mesh mesh, UnitSystem units, World3 world, MassProperties massProperties, Pose localPosition)
+            : base(mesh.ConvertTo(units), world, localPosition.ConvertFromTo(mesh.Units, units))
         {
             MassProperties=massProperties;
             AppliedForce = World3.ZeroForce;
@@ -28,12 +28,12 @@ namespace JA.Numerics.Simulation.Spatial
 
             var u = copy.Units;
 
-            float fl = UnitFactors.Length(copy.Units, target);
-            float ff = UnitFactors.Force(copy.Units, target);
-
-            if (copy.AppliedForce != null && copy.AppliedForce != World3.ZeroForce)
+            if (u!=target && copy.AppliedForce != null && copy.AppliedForce != World3.ZeroForce)
             {
-                AppliedForce = (t, r, v) => ff * copy.AppliedForce(t, r.ConvertFromTo(target, u), new Vector33(v.Vector1/fl, v.Vector2));
+                AppliedForce = (t, r, v) => copy.AppliedForce(t,
+                    r.ConvertFromTo(target, u),
+                    v.ConvertFromTo(target, u, UnitType.Length, ScrewType.Twist)
+                ).ConvertFromTo(u, target, UnitType.Force, ScrewType.Wrench);
             }
             else
             {

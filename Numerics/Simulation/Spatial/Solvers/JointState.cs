@@ -1,17 +1,17 @@
 ﻿using System;
 using System.ComponentModel;
 
-namespace JA.Numerics.Simulation.Spatial
+namespace JA.Numerics.Simulation.Spatial.Solvers
 {
     [TypeConverter(typeof(ExpandableObjectConverter))]
     public readonly struct JointState : ICanConvert<JointState>
     {
         public static readonly JointState Default = new JointState(JointType.RotateAboutZ, 0f, 0f);
-        public JointState(JointType type, float angle, float speed=0f) :  this()
+        public JointState(JointType type, float angle, float speed = 0f) : this()
         {
-            this.Type = type;
-            this.Angle = angle;
-            this.Speed = speed;
+            Type = type;
+            Angle = angle;
+            Speed = speed;
         }
 
         public static implicit operator JointState(JointInfo info)
@@ -25,8 +25,8 @@ namespace JA.Numerics.Simulation.Spatial
         public static JointState Add(JointState A, JointState B)
         {
             if (A.Type!=B.Type) throw new ArgumentException(nameof(B));
-            return new JointState(A.Type, 
-                A.Angle+B.Angle, 
+            return new JointState(A.Type,
+                A.Angle+B.Angle,
                 A.Speed+B.Speed);
         }
         public static JointState Subtract(JointState A, JointState B)
@@ -83,17 +83,17 @@ namespace JA.Numerics.Simulation.Spatial
         public static readonly JointInfo Default = new JointInfo(0f, 0f, 0f, 0f, JointProperties.AboutZ);
         public JointInfo(JointProperties joint, JointState state, float acceleration, float torque)
         {
-            this.Joint = joint;
-            this.Angle = state.Angle;
-            this.Speed = state.Speed;
-            this.Acceleration = acceleration;
-            this.Torque = torque;
+            Joint = joint;
+            Angle = state.Angle;
+            Speed = state.Speed;
+            Acceleration = acceleration;
+            Torque = torque;
         }
-        public JointInfo(JointProperties joint, float time, JointState state, float value=0)
+        public JointInfo(JointProperties joint, float time, JointState state, float value = 0)
         {
-            this.Joint = joint;
-            this.Angle = state.Angle;
-            this.Speed = state.Speed;
+            Joint = joint;
+            Angle = state.Angle;
+            Speed = state.Speed;
             switch (joint.Motion)
             {
                 case Prescribed.Motion:

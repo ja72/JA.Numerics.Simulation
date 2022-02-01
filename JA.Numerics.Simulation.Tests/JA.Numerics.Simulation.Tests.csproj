@@ -83,6 +83,7 @@
   <ItemGroup>
     <Compile Include="Numerics\Simulation\MaterialTests.cs" />
     <Compile Include="Numerics\Model\Spatial\MeshTests.cs" />
+    <Compile Include="Numerics\Simulation\UnitTests.cs" />
     <Compile Include="Numerics\Spatial\Matrix3Tests.cs" />
     <Compile Include="Numerics\Spatial\PoseTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
