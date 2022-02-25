@@ -6,14 +6,17 @@ using System.Runtime.CompilerServices;
 namespace JA.Numerics.Simulation.Spatial
 {
     [TypeConverter(typeof(ExpandableObjectConverter))]
-    public class MassProperties : IHasUnits<MassProperties>
+    public class MassProperties :
+        ICanChangeUnits<MassProperties>,
+        IEquatable<MassProperties>
     {
         public static readonly MassProperties Zero = new MassProperties(UnitSystem.SI, 0, Matrix3.Zero, Vector3.Zero);
-        internal readonly (float mass, Matrix3 mmoi, Vector3 cg) data;
+        private (float mass, Matrix3 mmoi, Vector3 cg) data;
+        internal (float mass, Matrix3 mmoi, Vector3 cg) Data => data;
 
         #region Factory
         public MassProperties(UnitSystem units, float mass, Matrix3 mmoi, Vector3 cg) : this(units, (mass, mmoi, cg)) { }
-        public MassProperties(UnitSystem units, (float mass, Matrix3 mmoi, Vector3 cg) data) 
+        public MassProperties(UnitSystem units, (float mass, Matrix3 mmoi, Vector3 cg) data)
         {
             this.Units = units;
             this.data = data;
@@ -43,7 +46,7 @@ namespace JA.Numerics.Simulation.Spatial
                     mass / 12 * (thickness * thickness + height * height),
                     mass / 12 * (width * width + thickness * thickness),
                     mass / 12 * (width * width + height * height)),
-                cg); 
+                cg);
         #endregion
 
         #region Properties
@@ -151,7 +154,7 @@ namespace JA.Numerics.Simulation.Spatial
         public static MassProperties operator -(MassProperties a, MassProperties b) => Subtract(a, b);
         public static MassProperties operator *(float factor, MassProperties a) => Scale(factor, a);
         public static MassProperties operator *(MassProperties a, float factor) => Scale(factor, a);
-        public static MassProperties operator /(MassProperties a, float divisor) => Scale(1/divisor, a); 
+        public static MassProperties operator /(MassProperties a, float divisor) => Scale(1/divisor, a);
         #endregion
 
         #region Formatting
@@ -164,12 +167,58 @@ namespace JA.Numerics.Simulation.Spatial
         public MassProperties ConvertTo(UnitSystem target)
         {
             if (Units == target) return this;
-            float fm = UnitFactors.Mass(Units, target);
-            float fl = UnitFactors.Length(Units, target);
-            float fi = fm * UnitFactors.Area(Units, target);
-            return new MassProperties(target,
-                (fm * data.mass, fi * data.mmoi, fl * data.cg));
-        } 
+            var copy = (
+                Unit.Mass.Convert(Units, target)*data.mass,
+                Unit.MassMomentOfInertia.Convert(Units, target) * data.mmoi,
+                Unit.Length.Convert(Units, target) * data.cg);
+            return new MassProperties(target, copy);
+        }
         #endregion
+
+        #region IEquatable Members
+        /// <summary>
+        /// Equality overrides from <see cref="System.Object"/>
+        /// </summary>
+        /// <param name="obj">The object to compare this with</param>
+        /// <returns>False if object is a different type, otherwise it calls <code>Equals(MassProperties)</code></returns>
+        public override bool Equals(object obj)
+        {
+            if (obj is MassProperties other)
+            {
+                return Equals(other);
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Checks for equality among <see cref="MassProperties"/> classes
+        /// </summary>
+        /// <param name="other">The other <see cref="MassProperties"/> to compare it to</param>
+        /// <returns>True if equal</returns>
+        public virtual bool Equals(MassProperties other)
+        {
+            return Mass.Equals(other.Mass)
+                && MMoi.Equals(other.MMoi)
+                && CG.Equals(other.CG);
+        }
+
+        /// <summary>
+        /// Calculates the hash code for the <see cref="MassProperties"/>
+        /// </summary>
+        /// <returns>The int hash value</returns>
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hc = -1817952719;
+                hc = (-1521134295)*hc + Mass.GetHashCode();
+                hc = (-1521134295)*hc + MMoi.GetHashCode();
+                hc = (-1521134295)*hc + CG.GetHashCode();
+                return hc;
+            }
+        }
+
+        #endregion
+
     }
 }

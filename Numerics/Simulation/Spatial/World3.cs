@@ -9,23 +9,29 @@ using System.Windows.Forms;
 
 namespace JA.Numerics.Simulation.Spatial
 {
+    using Geometry;
     using JA.UI;
     using JA.Numerics.Simulation.Spatial.Solvers;
 
     public delegate Vector33 AppliedForce(float time, Pose pose, Vector33 velocity);
     public delegate float JointDriver(float time, float jointDisplacement, float jointSpeed);
 
-
+    /// <summary>
+    /// Simulartion World. Contains lists of geometries, single solid bodies, and connected chains.
+    /// </summary>
+    /// <seealso cref="Solid" />
+    /// <seealso cref="Shape" />
+    /// <seealso cref="Chain"/>
     [TypeConverter(typeof(ExpandableObjectConverter))]
     public class World3 :
-        IHasUnits<World3>,
+        IHasUnits,
         INotifyPropertyChanged
     {
         public static readonly AppliedForce ZeroForce = (t, r, v) => Vector33.Zero;
         public static readonly JointDriver ZeroDriver = (t, q, qp) => 0;
 
         internal readonly List<Solid> bodyList;
-        internal readonly List<Geometry> geometryList;
+        internal readonly List<Shape> geometryList;
         internal readonly List<Chain> chainList;
 
         #region Notify Property
@@ -34,28 +40,21 @@ namespace JA.Numerics.Simulation.Spatial
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         #endregion
 
-        public World3(UnitSystem units) : this(units, Vector3.Zero) { }
+        public World3(UnitSystem units) : this(units, 
+            Unit.Acceleration.Convert(UnitSystem.SI, units) * (-10 * Vector3.UnitY)) { }
         public World3(UnitSystem units, Vector3 gravity)
         {
             Units = units;
-            geometryList = new List<Geometry>();
+            geometryList = new List<Shape>();
             bodyList = new List<Solid>();
             chainList = new List<Chain>();
             Gravity = gravity;
         }
 
-        World3(World3 copy, UnitSystem target)
-        {
-            Units = target;
-            bodyList.AddRange(copy.bodyList.Select(item => item.ConvertTo(target)));
-            chainList.AddRange(copy.chainList.Select(item => item.ConvertTo(target)));
-            geometryList.AddRange(copy.geometryList.Select(item => item.ConvertTo(target)));
-            Gravity =  copy.Gravity * Unit.Acceleration.Convert(copy.Units, target);
-        }
         [Category("Simulation")]
         public Vector3 Gravity { get; set; }
         [Category("Model")]
-        public IReadOnlyList<Geometry> GeometryList { get => geometryList; }
+        public IReadOnlyList<Shape> GeometryList { get => geometryList; }
 
         [Category("Model")]
         public IReadOnlyList<Solid> BodyList { get => bodyList; }
@@ -64,9 +63,26 @@ namespace JA.Numerics.Simulation.Spatial
         public IReadOnlyList<Chain> ChainList { get => chainList; }
 
         [Category("Model")]
-        public UnitSystem Units { get; }
+        public UnitSystem Units { get; private set; }
 
-        public void AddGeometry(Geometry mesh)
+        public void ConvertTo(UnitSystem target)
+        {
+            Gravity *= Unit.Acceleration.Convert(Units, target);
+            for (int i = 0; i < bodyList.Count; i++)
+            {
+                bodyList[i].ConvertTo(target);
+            }
+            for (int i = 0; i < chainList.Count; i++)
+            {
+                chainList[i].ConvertTo(target);
+            }
+            for (int i = 0; i < geometryList.Count; i++)
+            {
+                geometryList[i].ConvertTo(target);
+            }
+            Units = target;
+        }
+        public void AddGeometry(Shape mesh)
         {
             geometryList.Add(mesh);
         }
@@ -89,23 +105,24 @@ namespace JA.Numerics.Simulation.Spatial
             return chain;
         }
 
-        public ChainSolver GetChainSolver(int index=0) => new ChainSolver(this.ChainList[index]);
-        public ChainSolver[] GetChainSolvers() => chainList.Select((item) => new ChainSolver(item)).ToArray();
+        public ChainSolver GetChainSolver(int index=0, bool enableContacts = false) 
+            => new ChainSolver(this.ChainList[index], enableContacts);
+        public ChainSolver[] GetChainSolvers(bool enableConacts) => chainList.Select((item) 
+            => new ChainSolver(item, enableConacts)).ToArray();
         public MbdSolver GetMbdSolver() => new MbdSolver(this);
 
-        public World3 ConvertTo(UnitSystem target)
-        {
-            return new World3(this, target);
-        }
 
         #region Formatting
         public override string ToString()
             => $"World(Bodies={bodyList.Count}, Chain={chainList.Count}, Geometry={geometryList.Count} Gravity={Gravity})";
         #endregion
 
-        public void Render(Graphics g, Camera camera)
+        public void Render(Graphics g, Camera camera, out float scale)
         {
-            camera.SetupView(g);
+            camera.SetupView(g, out scale);
+
+            //scale *= Unit.Length.Factor(Units);
+            camera.RenderCsys(g, scale);
 
             for (int w = 0; w < GeometryList.Count; w++)
             {

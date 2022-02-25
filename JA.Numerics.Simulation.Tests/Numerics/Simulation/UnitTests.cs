@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace JA.Numerics.Simulation.Tests
+namespace JA.Numerics.Simulation
 {
     [TestClass()]
     public class UnitTests
@@ -47,20 +47,6 @@ namespace JA.Numerics.Simulation.Tests
         }
 
         [TestMethod()]
-        public void IsSameTypeTest()
-        {
-            Assert.IsTrue(Unit.Velocity.IsSameType(Unit.Length/ Unit.Time));
-        }
-
-        [TestMethod()]
-        public void IsDerivedTest()
-        {
-            Assert.IsTrue(Unit.Length.IsDerived(out _, out _, out _));
-            Assert.IsTrue(Unit.Area.IsDerived(out _, out _, out _));
-            Assert.IsFalse(Unit.Momentum.IsDerived(out _, out _, out _));
-        }
-
-        [TestMethod()]
         public void BaseTest()
         {
             Assert.AreEqual(Unit.Length, Unit.Base(UnitType.Length));
@@ -74,7 +60,9 @@ namespace JA.Numerics.Simulation.Tests
         [TestMethod()]
         public void CombineTest()
         {
-            throw new NotImplementedException();
+            Assert.AreEqual( Unit.Speed, Unit.Length/ Unit.Time);
+            Assert.AreEqual( Unit.Power, Unit.Force * Unit.Speed);
+            Assert.AreEqual(Unit.Power, Unit.Work/Unit.Time);
         }
 
         [TestMethod()]

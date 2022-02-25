@@ -10,7 +10,7 @@ using System.Xml;
 namespace JA.Numerics.Simulation.Spatial
 {
     [TypeConverter(typeof(ExpandableObjectConverter))]
-    public struct Pose : ICanConvert<Pose>
+    public struct Pose : ICanConvertUnits<Pose>
     {
         public Pose(Vector3 position, Quaternion orientation) : this()
         {
@@ -90,13 +90,12 @@ namespace JA.Numerics.Simulation.Spatial
         public static Quaternion operator /(Quaternion world, Pose parent) => ToLocal(world, parent);
         #endregion
 
-
         public override string ToString() => $"Pose({{{Position:g3} | {Orientation:g3}}})";
 
         public Pose ConvertFromTo(UnitSystem units, UnitSystem target)
         {
             if (units == target) return this;
-            float fl = UnitFactors.Length(units, target);
+            float fl = Unit.Length.Convert(units, target);
             return new Pose(fl * Position, Orientation);
         }
 

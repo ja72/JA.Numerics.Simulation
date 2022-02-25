@@ -82,10 +82,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Numerics\Simulation\MaterialTests.cs" />
-    <Compile Include="Numerics\Model\Spatial\MeshTests.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Geometry\CircleTests.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Geometry\MeshTests.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Geometry\TriangleTests.cs" />
     <Compile Include="Numerics\Simulation\UnitTests.cs" />
-    <Compile Include="Numerics\Spatial\Matrix3Tests.cs" />
-    <Compile Include="Numerics\Spatial\PoseTests.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\Matrix3Tests.cs" />
+    <Compile Include="Numerics\Simulation\Spatial\PoseTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -97,6 +99,10 @@
       <Project>{742dad2d-d009-4a0c-8623-dffb49b917b6}</Project>
       <Name>JA.Numerics.Simulation</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Numerics\Model\" />
+    <Folder Include="Numerics\Simulation\Spatial\Dynamics\" />
   </ItemGroup>
   <Import Project="$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets" Condition="Exists('$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets')" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

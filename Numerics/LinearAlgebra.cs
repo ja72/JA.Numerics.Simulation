@@ -98,6 +98,8 @@ namespace JA.Numerics
 
         public static AbsFloatComparer AbsFloat(float delta)
             => new AbsFloatComparer(delta);
+        public static AbsFloatComparer AbsFloat(int factor)
+            => new AbsFloatComparer(factor * ZeroTolerance);
 
         #endregion
 
@@ -248,6 +250,8 @@ namespace JA.Numerics
             var q_w = new Quaternion(0.5f*omega, 0);
             return Quaternion.Multiply(q_w, q);
         }
+
+        
 
         #endregion
 

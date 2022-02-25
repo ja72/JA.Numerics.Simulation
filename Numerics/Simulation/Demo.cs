@@ -8,15 +8,15 @@ using System.Threading.Tasks;
 
 namespace JA.Numerics.Simulation
 {
-
-    using JA.Numerics.Simulation.Spatial;
-    using JA.Numerics.Simulation.Spatial.Solvers;
+    using JA.Numerics.Simulation.Spatial.Geometry;
+    using Spatial;
+    using Spatial.Solvers;
 
     public static class Demo
     {
         public static void DemoSphere(World3 scene)
         {
-            var mesh = Mesh.CreateSphere(Color.SteelBlue, 2f);
+            var mesh = Mesh.CreateSphere(UnitSystem.MMKS, Color.SteelBlue, 2f);
 
             var solid1 = new Solid(mesh, scene, 0.1f, -5f*Vector3.UnitX);
             solid1.SetMotion(Vector3.Zero, 4f * Vector3.UnitX);
@@ -35,7 +35,7 @@ namespace JA.Numerics.Simulation
         public static void Demo4PhoneFlip(World3 scene)
         {
             var cg = 0f*Vector3.UnitY;
-            var mesh = Mesh.CreateCube(Color.Blue, 4f, 0.6f, 2.6f);
+            var mesh = Mesh.CreateCube(UnitSystem.MMKS, Color.Blue, 4f, 0.6f, 2.6f);
             mesh.ApplyTranform(cg);
             mesh.ElementList[0].Color = Color.Red;
             mesh.ElementList[1].Color = Color.Green;
@@ -49,15 +49,20 @@ namespace JA.Numerics.Simulation
                 scene.AddBody(solid);
             }
         }
-        public static Chain ChainDemo(World3 scene, int n, Vector3 pivot)
+        public static Chain ChainDemo(World3 scene, int n, float linkLength, Vector3 pivot, float mass, Mesh mesh)
         {
-            scene.Gravity = -10 * Vector3.UnitY;
-            float m = 0.15f, L = 1.50f, h = .650f;
-            var mesh = Mesh.CreateCube(Color.Blue, L, h, h);
+            var localPos = Vector3.UnitX * linkLength;
+            var chain = scene.AddChain(n, mesh, localPos/2, mass, localPos);
+            chain.Pivot = pivot;
+            return chain;
+        }
+
+        public static Chain ChainDemo(World3 scene, int n, float linkLength, Vector3 pivot, MassProperties body)
+        {
+            var mesh = Mesh.CreateCube(UnitSystem.SI, Color.Blue, linkLength, linkLength/12, linkLength/12);
             mesh.ElementList[0].Color = Color.Red;
-            var localPos = Vector3.UnitX * L;
-            var body = mesh.GetMmoiFromMass(m);
-            var chain = scene.AddChain(n, mesh, localPos/2, m, localPos);
+            var localPos = Vector3.UnitX * linkLength;
+            var chain = scene.AddChain(n, mesh, localPos/2, body, localPos);
             chain.Pivot = pivot;
             return chain;
         }

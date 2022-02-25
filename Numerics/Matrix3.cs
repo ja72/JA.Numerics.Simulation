@@ -305,7 +305,6 @@ namespace JA.Numerics
         }
         public Matrix3 Solve(Matrix3 other) => Inverse() * other;
 
-
         public Matrix3 Symmetric() => (this + Transpose()) / 2;
         public Matrix3 SkewSymmetric() => (this - Transpose()) / 2;
 

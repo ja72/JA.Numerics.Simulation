@@ -11,14 +11,21 @@ namespace JA.Numerics.Simulation
         IPS,
         FPS,
     }
-    public interface ICanConvert<out TItem>
-    {
-        TItem ConvertFromTo(UnitSystem unit, UnitSystem target);
-    }
-    public interface IHasUnits<out TItem>
+    public interface IHasUnits
     {
         UnitSystem Units { get; }
-        TItem ConvertTo(UnitSystem target);
+    }
+    public interface ICanChangeUnits : IHasUnits
+    {
+        void ConvertTo(UnitSystem target);
+    }
+    public interface ICanChangeUnits<T> : IHasUnits
+    {
+        T ConvertTo(UnitSystem target);
+    }
+    public interface ICanConvertUnits<T> 
+    {
+        T ConvertFromTo(UnitSystem units, UnitSystem target);
     }
 
     public enum UnitType
@@ -31,161 +38,9 @@ namespace JA.Numerics.Simulation
         Temperature,
     }
 
-    public static class UnitFactors
-    {
-        public static float Convert(UnitType type, UnitSystem from, UnitSystem to)
-        {
-            return Factor(type, from)/Factor(type, to);
-        }
-        public static float Factor(UnitType type, UnitSystem units)
-        {
-            switch (type)
-            {
-                case UnitType.None:
-                    return 1;
-                case UnitType.Length:
-                    return Length(units);
-                case UnitType.Mass:
-                    return Mass(units);
-                case UnitType.Force:
-                    return Force(units);
-                case UnitType.Time:
-                    return 1;
-                case UnitType.Temperature:
-                    return Temperature(units);
-                default:
-                    throw new NotSupportedException(type.ToString());
-            }
-        }
-
-        public static float Length(UnitSystem units)
-        {
-            switch (units)
-            {
-                case UnitSystem.SI:
-                    return 1f;
-                case UnitSystem.MMKS:
-                    return 0.001f;
-                case UnitSystem.IPS:
-                    return 0.0254f;
-                case UnitSystem.FPS:
-                    return 12 * 0.0254f;
-                default:
-                    throw new NotSupportedException(units.ToString());
-            }
-        }
-        public static float Length(UnitSystem from, UnitSystem to)
-        {
-            return Length(from) / Length(to);
-        }
-        public static float Mass(UnitSystem units)
-        {
-            switch (units)
-            {
-                case UnitSystem.SI:
-                case UnitSystem.MMKS:
-                    return 1f;
-                case UnitSystem.IPS:
-                case UnitSystem.FPS:
-                    return 0.4535924f;
-                default:
-                    throw new NotSupportedException(units.ToString());
-            }
-        }
-        public static float Mass(UnitSystem from, UnitSystem to)
-        {
-            return Mass(from) / Mass(to);
-        }
-        public static float Force(UnitSystem units)
-        {
-            switch (units)
-            {
-                case UnitSystem.SI:
-                case UnitSystem.MMKS:
-                    return 1f;
-                case UnitSystem.IPS:
-                case UnitSystem.FPS:
-                    return 4.4482216f;
-                default:
-                    throw new NotSupportedException(units.ToString());
-            }
-        }
-        public static float Force(UnitSystem from, UnitSystem to)
-        {
-            return Force(from) / Force(to);
-        }
-        public static float Torque(UnitSystem units)
-            => Force(units) * Length(units);
-        public static float Torque(UnitSystem from, UnitSystem to)
-            => Force(from, to) * Length(from, to);
-        public static float Work(UnitSystem units)
-            => Force(units) * Length(units);
-        public static float Work(UnitSystem from, UnitSystem to)
-            => Force(from, to) * Length(from, to);
-        public static float Momentum(UnitSystem units)
-            => Mass(units) * Length(units);
-        public static float Momentum(UnitSystem from, UnitSystem to)
-            => Mass(from, to) * Length(from, to);
-        public static float AngularMomentum(UnitSystem units)
-            => Mass(units) * Length(units) * Length(units);
-        public static float AngularMomentum(UnitSystem from, UnitSystem to)
-            => Mass(from, to) * Length(from, to) * Length(from, to);
-
-        public static float Temperature(UnitSystem units)
-        {
-            switch (units)
-            {
-                case UnitSystem.SI:
-                case UnitSystem.MMKS:
-                    return 1f;
-                case UnitSystem.IPS:
-                case UnitSystem.FPS:
-                    return 1/1.8f;
-                default:
-                    throw new NotSupportedException(units.ToString());
-            }
-        }
-        public static float Temperature(UnitSystem from, UnitSystem to)
-        {
-            return Temperature(from) / Temperature(to);
-        }
-
-        public static float Area(UnitSystem units)
-        {
-            return Length(units) * Length(units);
-        }
-        public static float Area(UnitSystem from, UnitSystem to)
-        {
-            return Area(from) / Area(to);
-        }
-        public static float Volume(UnitSystem units)
-        {
-            return Length(units) * Length(units) *Length(units);
-        }
-        public static float Volume(UnitSystem from, UnitSystem to)
-        {
-            return Volume(from) / Volume(to);
-        }
-        public static float Density(UnitSystem units)
-        {
-            return Mass(units) / Volume(units);
-        }
-        public static float Density(UnitSystem from, UnitSystem to)
-        {
-            return Density(from) / Density(to);
-        }
-        public static float Pressure(UnitSystem units)
-        {
-            return Force(units) / Area(units);
-        }
-        public static float Pressure(UnitSystem from, UnitSystem to)
-        {
-            return Pressure(from) / Pressure(to);
-        }
-    }
-
     public abstract class Unit : IEquatable<Unit>
     {
+        public abstract override string ToString();
         public abstract float Factor(UnitSystem units);
         public abstract UnitType GetBase();
         public abstract int Complexity { get; }
@@ -194,23 +49,6 @@ namespace JA.Numerics.Simulation
         {
             return Factor(from)/Factor(to);
         }
-
-        #region Common Units
-        public static readonly Unit None = new NoUnit();
-        public static readonly Unit Length = new BaseUnit(UnitType.Length);
-        public static readonly Unit Mass = new BaseUnit(UnitType.Mass);
-        public static readonly Unit Force = new BaseUnit(UnitType.Force);
-        public static readonly Unit Time = new BaseUnit(UnitType.Time);
-        public static readonly Unit Temperature = new BaseUnit(UnitType.Temperature);
-        public static readonly Unit Velocity = Length/Time;
-        public static readonly Unit Acceleration = Velocity/Time;
-        public static readonly Unit Momentum = Mass*Velocity;
-        public static readonly Unit Impulse = Force * Time;
-        public static readonly Unit PerTemperature = 1/Temperature;
-        public static readonly Unit Area = Length ^ 2;
-        public static readonly Unit Volume = Length ^ 3;
-        public static readonly Unit Density = Mass/Volume;
-        #endregion
 
         #region Factory
         public static Unit Base(UnitType type)
@@ -225,39 +63,15 @@ namespace JA.Numerics.Simulation
             if (a.IsScalar) return b;
             if (b.IsScalar) return a;
             if (a.Equals(b)) return Raise(a, 2);
-            if (a.IsDerived(out var s1, out var n1, out var u1) && b.IsDerived(out var s2, out var n2, out var u2))
-            {
-                if (u1.Equals(u2))
-                {
-                    return Derived(s1*s2, Raise(u1, n1+n2));
-                }
-            }
-            if (a is CombineUnit cu1 && b is CombineUnit cu2)
-            {
-                Unit[] parts = new Unit[cu1.Count + cu2.Count];
-                Array.Copy(cu1.Parts, 0, parts, 0, cu1.Count);
-                Array.Copy(cu2.Parts, 0, parts, cu1.Count, cu2.Count);
-                return Combine(parts);
-            }
-            if (a is CombineUnit cu3)
-            {
-                Unit[] parts = new Unit[cu3.Count + 1];
-                Array.Copy(cu3.Parts, 0, parts, 0, cu3.Count);
-                parts[cu3.Count] = b;
-                return Combine(parts);
-            }
-            if (b is CombineUnit)
-            {
-                Combine(b, a);
-            }
-            return new CombineUnit(a, b);
+            return new ComplexUnit(a, b);
+        }
+        public static Unit Combine(float scale, params Unit[] parts)
+        {
+            return new ComplexUnit(scale, parts);
         }
         public static Unit Combine(params Unit[] parts)
         {
-            parts = parts.Where((u) => !u.IsScalar).ToArray();
-            if (parts.Length == 0) return None;
-            if (parts.Length == 1) return parts[0];
-            return new CombineUnit(parts);
+            return new ComplexUnit(parts);
         }
 
         public static Unit Derived(float scale, Unit unit)
@@ -265,11 +79,11 @@ namespace JA.Numerics.Simulation
             if (scale==0) return None;
             if (scale==1) return unit;
             if (unit is NoUnit) return None;
-            if (unit is DerivedUnit du)
+            if (unit is ComplexUnit du)
             {
-                return Derived(scale*du.Scale, du.Argument);
+                return Combine(scale*du.Scale, du.Parts);
             }
-            return new DerivedUnit(scale, unit);
+            return new ComplexUnit(scale, unit);
         }
 
         public static Unit Raise(Unit unit, int exponent)
@@ -280,16 +94,39 @@ namespace JA.Numerics.Simulation
             {
                 return Raise(ru.Argument, exponent*ru.Exponent);
             }
-            if (unit is DerivedUnit du)
+            if (unit is ComplexUnit cu)
             {
-                return Derived((float)Math.Pow(du.Scale, exponent), Raise(du.Argument, exponent));
-            }
-            if (unit is CombineUnit cu)
-            {
-                return Combine(cu.Parts.Select((u) => Raise(u, exponent)).ToArray());
+                return Combine((float)Math.Pow(cu.Scale, exponent),  cu.Parts.Select((u) => Raise(u, exponent)).ToArray());
             }
             return new RaiseUnit(unit, exponent);
         }
+
+        #endregion
+
+        #region Common Units
+        public static readonly Unit None = new NoUnit();
+        public static readonly Unit Angle = new BaseUnit(UnitType.None);
+        public static readonly Unit Length = new BaseUnit(UnitType.Length);
+        public static readonly Unit Mass = new BaseUnit(UnitType.Mass);
+        public static readonly Unit Force = new BaseUnit(UnitType.Force);
+        public static readonly Unit Time = new BaseUnit(UnitType.Time);
+        public static readonly Unit Temperature = new BaseUnit(UnitType.Temperature);
+        public static readonly Unit Speed = Length/Time;
+        public static readonly Unit Acceleration = Speed/Time;
+        public static readonly Unit RotationalSpeed = Angle/Time;
+        public static readonly Unit RotationalAcceleration = RotationalSpeed/Time;
+        public static readonly Unit Torque = Force * Length;
+        public static readonly Unit Momentum = Mass*Speed;
+        public static readonly Unit Impulse = Force * Time;
+        public static readonly Unit Work = Force * Length;
+        public static readonly Unit Power = Force * Speed;
+        public static readonly Unit PerTemperature = 1/Temperature;
+        public static readonly Unit Area = Length ^ 2;
+        public static readonly Unit Volume = Length ^ 3;
+        public static readonly Unit Density = Mass/Volume;
+        public static readonly Unit Pressure = Force/Area;
+        public static readonly Unit AreaMoment = Length ^ 4;
+        public static readonly Unit MassMomentOfInertia = Mass*Area;
         #endregion
 
         public static implicit operator Unit(float factor) => Derived(factor, None);
@@ -299,54 +136,16 @@ namespace JA.Numerics.Simulation
         public bool IsScalar { get => this is NoUnit || this is BaseUnit bu && bu.Type==UnitType.None; }
         public bool IsBase { get => this is BaseUnit bu && bu.Type != UnitType.None; }
 
-        public bool IsSameType(Unit other)
+        public bool IsComplex(out float scale, out Unit[] parts)
         {
-            if (Equals(other)) return true;
-            if (IsDerived(out var s1, out var n1, out var u1) && other.IsDerived(out var s2, out var n2, out var u2))
+            if (this is ComplexUnit cu)
             {
-                return n1==n2 && u1.Equals(u2);
-            }
-            return GetBase() == other.GetBase();
-        }
-        public bool IsDerived(out float scale, out int exponent, out Unit argument)
-        {
-            if (this is NoUnit nu)
-            {
-                scale = 1;
-                exponent = 1;
-                argument = None;
+                scale = cu.Scale;
+                parts = cu.Parts;
                 return true;
             }
-            else if (this is BaseUnit bu)
-            {
-                scale = 1;
-                exponent = 1;
-                argument = bu;
-                return true;
-            }
-            else if (this is DerivedUnit du)
-            {
-                scale = du.Scale;
-                if (du.Argument is RaiseUnit ru)
-                {
-                    exponent = ru.Exponent;
-                    argument = ru.Argument;
-                    return ru.IsBase;
-                }
-                exponent = 1;
-                argument = du.Argument;
-                return du.IsBase;
-            }
-            else if (this is RaiseUnit ru)
-            {
-                scale = 1;
-                exponent = ru.Exponent;
-                argument = ru.Argument;
-                return ru.IsBase;
-            }
-            scale = 1;
-            exponent = 0;
-            argument = None;
+            scale = 0;
+            parts = Array.Empty<Unit>();
             return false;
         }
 
@@ -389,6 +188,10 @@ namespace JA.Numerics.Simulation
             {
                 return -1817952719;
             }
+            public override string ToString()
+            {
+                return string.Empty;
+            }
         }
         class BaseUnit : Unit
         {
@@ -401,7 +204,7 @@ namespace JA.Numerics.Simulation
             public override int Complexity => 1;
             public override float Factor(UnitSystem units)
             {
-                return UnitFactors.Factor(Type, units);
+                return GetFactor(Type, units);
             }
             public override int GetHashCode()
             {
@@ -413,50 +216,27 @@ namespace JA.Numerics.Simulation
                 {
                     return Type == bu.Type;
                 }
-                return false;
-            }
-        }
-        class DerivedUnit : Unit
-        {
-            public DerivedUnit(float scale, Unit argument)
-            {
-                Scale=scale;
-                Argument=argument;
-            }
-            public float Scale { get; }
-            public Unit Argument { get; }
-            public override UnitType GetBase() => Argument.GetBase();
-            public override int Complexity => 1 + Argument.Complexity;
-            public override float Factor(UnitSystem units)
-            {
-                return Scale * Argument.Factor(units);
-            }
-            public override bool Equals(Unit other)
-            {
-                if (other is DerivedUnit du)
+                else if (other is RaiseUnit ru)
                 {
-                    return Scale == du.Scale
-                        && Argument.Equals(du.Argument);
+                    ru.Equals(this);
+                }
+                else if (other is ComplexUnit du)
+                {
+                    du.Equals(this);
                 }
                 return false;
             }
-            public override int GetHashCode()
+            public override string ToString()
             {
-                unchecked
-                {
-                    int hc = -1817952719;
-                    hc = (-1521134295)*hc + Scale.GetHashCode();
-                    hc = (-1521134295)*hc + Argument.GetHashCode();
-                    return hc;
-                }
+                return Type.ToString();
             }
         }
         class RaiseUnit : Unit
         {
             public RaiseUnit(Unit argument, int exponent)
             {
-                Argument=argument;
                 Exponent=exponent;
+                Argument=argument;
             }
             public Unit Argument { get; }
             public int Exponent { get; }
@@ -485,7 +265,8 @@ namespace JA.Numerics.Simulation
                     return Exponent == ru.Exponent
                         && Argument.Equals(ru.Argument);
                 }
-                return false;
+                return Exponent == 1
+                    && Argument.Equals(other);
             }
             public override int GetHashCode()
             {
@@ -497,21 +278,88 @@ namespace JA.Numerics.Simulation
                     return hc;
                 }
             }
-        }
-        class CombineUnit : Unit
-        {
-            public CombineUnit(params Unit[] parts)
+            public override string ToString()
             {
-                Parts=parts;
-                Array.Sort(Parts, (x, y) => Compare(x, y));
+                return Argument.IsBase ? $"{Argument}^{Exponent}" : $"({Argument})^{Exponent}";
             }
-            public int Count { get => Parts.Length; }
+        }
+
+        class ComplexUnit : Unit
+        {
+            public ComplexUnit(params Unit[] parts)
+                : this(1, parts) { }
+            public ComplexUnit(float scale, Unit[] parts)
+            {
+                //Combine all complex parts
+                while (parts.Any(u=> u is ComplexUnit))
+                {
+                    List<Unit> temp = new List<Unit>(parts.Length);
+                    for (int i = 0; i < parts.Length; i++)
+                    {
+                        if (parts[i] is ComplexUnit cu)
+                        {
+                            scale *= cu.Scale;
+                            temp.AddRange(cu.Parts);
+                        }
+                        else
+                        {
+                            temp.Add(parts[i]);
+                        }
+                    }
+                    parts = temp.ToArray();
+                }
+                var units = new Dictionary<UnitType, int>
+                {
+                    [UnitType.Length] = 0,
+                    [UnitType.Mass] = 0,
+                    [UnitType.Force] = 0,
+                    [UnitType.Time] = 0,
+                    [UnitType.Temperature] = 0
+                };
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    // Store exponents
+                    if (parts[i] is BaseUnit bu)
+                    {
+                        units[bu.Type] += 1;
+                    }
+                    else if (parts[i] is RaiseUnit ru)
+                    {
+                        if (ru.Argument is BaseUnit rbu)
+                        {
+                            units[rbu.Type] += ru.Exponent;
+                        }
+                        else
+                        {
+                            throw new NotSupportedException($"Raised unit to complex base of {ru.Argument.GetType().Name}");
+                        }
+                    }
+                    else
+                    {
+                        throw new NotSupportedException($"Unexpected unit {parts[i].GetType().Name}");
+                    }
+                }
+                Scale = scale;
+                List<Unit> basis = new List<Unit>(5);
+                foreach (var unit in units)
+                {
+                    if (unit.Value!=0)
+                    {
+                        basis.Add(Raise(Base(unit.Key), unit.Value));
+                    }
+                }
+                Parts = basis.ToArray();
+                Array.Sort(Parts, Compare);
+            }
+            public bool IsDerived { get => Scale!=1 && Parts.Length==1; }
+            public float Scale { get; }
             public Unit[] Parts { get; }
+            public int Count { get => Parts.Length; }
             public override UnitType GetBase() => Parts.Length==1 ? Parts[0].GetBase() : UnitType.None;
             public override int Complexity => 1 + Parts.Max((p) => p.Complexity);
             public override float Factor(UnitSystem units)
             {
-                float f = 1;
+                float f = Scale;
                 for (int i = 0; i < Parts.Length; i++)
                 {
                     f *= Parts[i].Factor(units);
@@ -521,20 +369,30 @@ namespace JA.Numerics.Simulation
 
             public override bool Equals(Unit other)
             {
-                if (other is CombineUnit cu)
+                if (other is ComplexUnit cu)
                 {
-                    return Enumerable.SequenceEqual(Parts, cu.Parts);
+                    return Scale == cu.Scale
+                        && Enumerable.SequenceEqual(Parts, cu.Parts);
+                }
+                else if (IsScalar)
+                {
+                    return Scale==1 && Parts[0].Equals(other);
                 }
                 return false;
             }
             public override int GetHashCode()
             {
                 int hc = -1817952719;
+                hc = (-1521134295)*hc + Scale.GetHashCode();
                 for (int i = 0; i < Parts.Length; i++)
                 {
                     hc = (-1521134295)*hc + Parts[i].GetHashCode();
                 }
                 return hc;
+            }
+            public override string ToString()
+            {
+                return Scale!=1 ? $"{Scale}{string.Join<Unit>("·", Parts)}" : string.Join<Unit>("·", Parts);
             }
         }
         #endregion
@@ -569,6 +427,137 @@ namespace JA.Numerics.Simulation
 
         #endregion
 
+        #region Static Conversions
+        public static float GetFactor(UnitType type, UnitSystem units)
+        {
+            switch (type)
+            {
+                case UnitType.None:
+                    return 1;
+                case UnitType.Length:
+                    return LengthFactor(units);
+                case UnitType.Mass:
+                    return MassFactor(units);
+                case UnitType.Force:
+                    return ForceFactor(units);
+                case UnitType.Time:
+                    return 1;
+                case UnitType.Temperature:
+                    return TemperatureFactor(units);
+                default:
+                    throw new NotSupportedException(type.ToString());
+            }
+        }
+        static float LengthFactor(UnitSystem units)
+        {
+            switch (units)
+            {
+                case UnitSystem.SI:
+                    return 1f;
+                case UnitSystem.MMKS:
+                    return 0.001f;
+                case UnitSystem.IPS:
+                    return 0.0254f;
+                case UnitSystem.FPS:
+                    return 12 * 0.0254f;
+                default:
+                    throw new NotSupportedException(units.ToString());
+            }
+        }
+        static float MassFactor(UnitSystem units)
+        {
+            switch (units)
+            {
+                case UnitSystem.SI:
+                case UnitSystem.MMKS:
+                    return 1f;
+                case UnitSystem.IPS:
+                case UnitSystem.FPS:
+                    return 0.4535924f;
+                default:
+                    throw new NotSupportedException(units.ToString());
+            }
+        }
+        static float ForceFactor(UnitSystem units)
+        {
+            switch (units)
+            {
+                case UnitSystem.SI:
+                case UnitSystem.MMKS:
+                    return 1f;
+                case UnitSystem.IPS:
+                case UnitSystem.FPS:
+                    return 4.4482216f;
+                default:
+                    throw new NotSupportedException(units.ToString());
+            }
+        }
+        static float TemperatureFactor(UnitSystem units)
+        {
+            switch (units)
+            {
+                case UnitSystem.SI:
+                case UnitSystem.MMKS:
+                    return 1f;
+                case UnitSystem.IPS:
+                case UnitSystem.FPS:
+                    return 1/1.8f;
+                default:
+                    throw new NotSupportedException(units.ToString());
+            }
+        }
+
+        #endregion
+
     }
+    public static class UnitSystemExtensions
+    {
+        public static bool IsConsistent(this UnitSystem units)
+        {
+            switch (units)
+            {
+                case UnitSystem.SI:
+                    return true;
+                case UnitSystem.MMKS:
+                case UnitSystem.IPS:
+                case UnitSystem.FPS:
+                    return false;
+                default:
+                    throw new NotSupportedException($"Unknown unit system {units}");
+            }
+        }
+        public static bool IsMetric(this UnitSystem units)
+        {
+            switch (units)
+            {
+                case UnitSystem.SI:
+                case UnitSystem.MMKS:
+                    return true;
+                case UnitSystem.IPS:
+                case UnitSystem.FPS:
+                    return false;
+                default:
+                    throw new NotSupportedException($"Unknown unit system {units}");
+            }
+        }
+        public static float GravityFactor(this UnitSystem units)
+        {
+            switch (units)
+            {
+                case UnitSystem.SI:
+                    return 1;
+                case UnitSystem.MMKS:
+                    return 1000;
+                case UnitSystem.IPS:
+                    return 386.0885827f;
+                case UnitSystem.FPS:
+                    return 32.1740486f;
+                default:
+                    throw new NotSupportedException($"Unknown unit system {units}");
+            }
+        }
+    }
+
+
 
 }

@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Windows.Forms;
 using System.Numerics;
+using System.Drawing;
 
 namespace JA.UI
 {
+    using JA.Numerics;
     using JA.Numerics.Simulation;
     using JA.Numerics.Simulation.Spatial;
+    using JA.Numerics.Simulation.Spatial.Geometry;
     using JA.Numerics.Simulation.Spatial.Solvers;
 
     public partial class Render3DForm : Form
@@ -22,8 +25,9 @@ namespace JA.UI
         {
             InitializeComponent();
 
-            this.camera = new Camera(pictureBox1, 7f, 5f);
-            this.Scene = new World3(UnitSystem.MMKS);
+            this.camera = new Camera(pictureBox1, 7f, 0.3f);
+            camera.FocalPoint = 0.3f * Vector3.UnitX;
+            this.Scene = new World3(UnitSystem.SI);
             this.timer1.Interval = 15;
             this.timer1.Tick += (s, ev) =>
             {
@@ -78,9 +82,9 @@ namespace JA.UI
             this.camera.Paint += (g, c) =>
             {
                 //c.Render(g, Scene, showMesh);
-                Scene.Render(g, c);
-                MbdSolver?.Render(g, c);
-                ChainSolver?.Render(g, c);
+                Scene.Render(g, c, out var scale);
+                MbdSolver?.Render(g, c, scale);
+                ChainSolver?.Render(g, c, scale);
             };
 
             pictureBox1.Focus();
@@ -96,15 +100,26 @@ namespace JA.UI
         {
             base.OnLoad(e);
 
+            update =false;
+
             //Demo.DemoSphere(Scene);
             //Demo.Demo4PhoneFlip(Scene);
-            var pivot = new Vector3(-2f, 2f, 0f);
-            Demo.ChainDemo(Scene, 4, pivot);
-            Scene.ChainList[0].Links[0].InitialDisplacement = -90f.Deg();
-            Scene.ChainList[0].Links[0].InitialSpeed = 2f;
-
+            var pivot = new Vector3(0f, 0f, 0f);
+            float m = 0.5f, L = 0.3f;
+            var body = new MassProperties(UnitSystem.SI, m, (2*m)*Matrix3.Diagonal(317.5e-6f, 3750e-6f, 3750e-6f), Vector3.Zero);
+            var mesh = Mesh.CreateCube(UnitSystem.SI, Color.Blue, L, L/12, L/12);
+            mesh.ElementList[0].Color = Color.Red;
+            var localPos = Vector3.UnitX * L;
+            var chain = Scene.AddChain(6, mesh, localPos/2, m, localPos);
+            camera.SceneSize = 0.9f;
+            camera.FocalPoint = 0.5f*Vector3.UnitX - 0.5f*Vector3.UnitY;
+            chain.Pivot = pivot;
+            chain[0].InitialDisplacement = 0f * deg;
+            chain[0].InitialSpeed = -0.6f;
+            chain[1].InitialSpeed = -0.35f;  
+            
             MbdSolver = Scene.GetMbdSolver();
-            ChainSolver = Scene.GetChainSolver();
+            ChainSolver = Scene.GetChainSolver(0, false);
 
             this.MbdSolver.PropertyChanged += (s, ev) =>
             {

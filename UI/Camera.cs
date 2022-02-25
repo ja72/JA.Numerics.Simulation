@@ -10,7 +10,7 @@ namespace JA.UI
 {
     using JA.Numerics;
     using JA.Numerics.Simulation;
-    using JA.Numerics.Simulation.Spatial;
+    using JA.Numerics.Simulation.Spatial.Geometry;
 
     public delegate void CameraPaintHandler(Graphics g, Camera camera);
 
@@ -35,6 +35,7 @@ namespace JA.UI
         {
             Target = target;
             FOV = fov;
+            FocalPoint = Vector3.Zero;
             SceneSize = sceneSize;
             LightPosition = new Vector3(1f * sceneSize, 1f * sceneSize, 2f* sceneSize);
             Mouse = new MouseControl();
@@ -86,6 +87,7 @@ namespace JA.UI
         public float Yaw { get; set; }
         public float Pitch { get; set; }
         public float Roll { get; set; }
+        public Vector3 FocalPoint { get; set; }
         public MouseControl Mouse { get; }
         public Control Target { get; }
         public float SceneSize { get; set; }
@@ -97,7 +99,7 @@ namespace JA.UI
         public Vector3 LightPosition { get; set; }
 
         public float DrawSize { get => 2 * (float)Math.Tan(FOV / 2 * Math.PI / 180); }
-        public Vector3 EyePosition { get => Vector3.Transform(Vector3.UnitZ * SceneSize / DrawSize, Quaternion.Inverse(Orientation)); }
+        public Vector3 EyePosition { get => FocalPoint + Vector3.Transform(Vector3.UnitZ * SceneSize / DrawSize, Quaternion.Inverse(Orientation)); }
         public PointF[] Project(Triangle triangle) => Project(triangle.A, triangle.B, triangle.C);
         public PointF[] Project(Polygon polygon) => Project(polygon.Nodes);
 
@@ -136,7 +138,7 @@ namespace JA.UI
             var points = new PointF[nodes.Length];
             for (int i = 0; i < points.Length; i++)
             {
-                var point = Vector3.Transform(nodes[i], R);
+                var point = Vector3.Transform(nodes[i]-FocalPoint, R);
                 points[i] = new PointF(
                     +sz / 2 * point.X / (r * (L - point.Z)),
                     -sz / 2 * point.Y / (r * (L - point.Z)));
@@ -180,11 +182,12 @@ namespace JA.UI
             return (float)Math.Pow(λ.Cap(0, 1), 155f);
         }
 
-        void RenderCsys(Graphics g, float scale=1)
+        public void RenderCsys(Graphics g, float scale=1)
         {
+            //scale *= ProjectionScale*EyeDistance/5;
             using var pen = new Pen(Color.Black, 0);
-            var csys = Project(Vector3.Zero, Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
-            pen.CustomEndCap = new AdjustableArrowCap(2f*scale, 8f*scale, true);
+            var csys = Project(Vector3.Zero, scale*Vector3.UnitX, scale*Vector3.UnitY, scale*Vector3.UnitZ);
+            pen.CustomEndCap = new AdjustableArrowCap(2f, 8f, true);
             pen.Color = Color.Red;
             g.DrawLine(pen, csys[0], csys[1]);
             pen.Color = Color.Green;
@@ -192,12 +195,11 @@ namespace JA.UI
             pen.Color = Color.Blue;
             g.DrawLine(pen, csys[0], csys[3]);
         }
-        public void SetupView(Graphics g)
+        public void SetupView(Graphics g, out float scale)
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TranslateTransform(Target.ClientSize.Width / 2f, Target.ClientSize.Height / 2f);
-
-            RenderCsys(g);
+            scale = ProjectionScale*EyeDistance/4;
         }
 
     }

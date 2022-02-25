@@ -10,8 +10,8 @@ namespace JA.Numerics.Simulation
         Steel,
         CastIron,
     }
-    public sealed class Material : 
-        IHasUnits<Material>,
+    public sealed class Material :
+        ICanChangeUnits<Material>,
         IEquatable<Material>
     {
         public Material(UnitSystem units, float density, float elastic, float poissons, float cte, MaterialSpec spec = MaterialSpec.Custom)
@@ -23,7 +23,7 @@ namespace JA.Numerics.Simulation
             Poissons = poissons;
             CTE = cte;
         }
-        public Material(MaterialSpec spec)
+        Material(MaterialSpec spec)
         {
             Units = UnitSystem.SI;
             Spec = spec;
@@ -52,8 +52,9 @@ namespace JA.Numerics.Simulation
                     throw new NotImplementedException();
             }
         }
-        public static implicit operator Material(MaterialSpec spec)
-            => new Material(spec);
+        public static implicit operator Material(MaterialSpec spec) => Library(spec);
+
+        public static Material Library(MaterialSpec spec) => new Material(spec);
 
         internal static Material Test(UnitSystem units) => new Material(units, 1, 1, 1, 1);
 
@@ -61,20 +62,21 @@ namespace JA.Numerics.Simulation
         public MaterialSpec Spec { get; }
         public float Density { get; }
         public float Elastic { get; }
-        public float Poissons { get; }
-        public float CTE { get; }
+        public float Poissons { get;  }
+        public float CTE { get;  }
 
         public Material ConvertTo(UnitSystem target)
         {
-            float frho = UnitFactors.Density(Units, target);
-            float fp = UnitFactors.Pressure(Units, target);
-            float fcte = 1 / UnitFactors.Temperature(Units, target);
-            return new Material(target,
-                frho * Density,
-                fp * Elastic,
-                Poissons,
-                fcte * CTE,
-                Spec);
+            if (Units != target)
+            {
+                return new Material(target,
+                    Density * Unit.Density.Convert(Units, target),
+                    Elastic * Unit.Pressure.Convert(Units, target),
+                    Poissons,
+                    CTE * Unit.PerTemperature.Convert(Units, target),
+                    Spec);
+            }
+            return this;
         }
 
 
@@ -100,14 +102,19 @@ namespace JA.Numerics.Simulation
         /// <returns>True if equal</returns>
         public bool Equals(Material other)
         {
-            if (other.Units != Units)
+            if (Spec == MaterialSpec.Custom || other.Spec == MaterialSpec.Custom)
             {
-                return Equals(other.ConvertTo(Units));
+                other = other.ConvertTo(Units);
+
+                return Density.Equals(other.Density)
+                    && Elastic.Equals(other.Elastic)
+                    && Poissons.Equals(other.Poissons)
+                    && CTE.Equals(other.CTE);
             }
-            return Density.Equals(other.Density)
-                && Elastic.Equals(other.Elastic)
-                && Poissons.Equals(other.Poissons)
-                && CTE.Equals(other.CTE);
+            else
+            {
+                return Spec == other.Spec;
+            }
         }
         /// <summary>
         /// Calculates the hash code for the <see cref="Material"/>
